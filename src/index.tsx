@@ -16,8 +16,11 @@ type Member = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// CORS設定
-app.use('/api/*', cors())
+// CORS設定（Cookie送信を許可）
+app.use('/api/*', cors({
+  origin: (origin) => origin,
+  credentials: true
+}))
 
 // セッション管理用ミドルウェア
 const requireAuth = async (c: any, next: any) => {
@@ -80,7 +83,7 @@ app.post('/api/login', async (c) => {
   
   setCookie(c, 'session_user', sessionData, {
     maxAge: 86400, // 24時間
-    httpOnly: true,
+    path: '/',
     sameSite: 'Lax'
   })
 

@@ -8,11 +8,18 @@ const state = {
   summary: []
 }
 
+// Axios デフォルト設定（Cookie送信を有効化）
+axios.defaults.withCredentials = true
+
 // API呼び出しヘルパー
 const api = {
   async call(method, url, data = null) {
     try {
-      const config = { method, url }
+      const config = { 
+        method, 
+        url,
+        withCredentials: true
+      }
       if (data) config.data = data
       const response = await axios(config)
       return response.data
