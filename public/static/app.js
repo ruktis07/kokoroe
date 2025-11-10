@@ -5,11 +5,29 @@ const state = {
   items: [],
   evaluations: [],
   teamMembers: [],
-  summary: []
+  summary: [],
+  loading: false
 }
 
 // Axios デフォルト設定（Cookie送信を有効化）
 axios.defaults.withCredentials = true
+
+// ローディング表示
+function showLoading() {
+  state.loading = true
+  const loadingDiv = document.getElementById('loading-overlay')
+  if (loadingDiv) {
+    loadingDiv.classList.remove('hidden')
+  }
+}
+
+function hideLoading() {
+  state.loading = false
+  const loadingDiv = document.getElementById('loading-overlay')
+  if (loadingDiv) {
+    loadingDiv.classList.add('hidden')
+  }
+}
 
 // API呼び出しヘルパー
 const api = {
@@ -103,36 +121,56 @@ async function handleLogin(e) {
   const username = document.getElementById('username').value
   const password = document.getElementById('password').value
   const errorDiv = document.getElementById('login-error')
+  const submitBtn = e.target.querySelector('button[type="submit"]')
 
   try {
+    submitBtn.disabled = true
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>ログイン中...'
+    
     const result = await api.post('/api/login', { username, password })
     state.currentUser = result.user
     
     if (result.user.role === 'admin') {
-      showAdminDashboard()
+      await showAdminDashboard()
     } else {
-      showUserDashboard()
+      await showUserDashboard()
     }
   } catch (error) {
     errorDiv.textContent = error.response?.data?.error || 'ログインに失敗しました'
     errorDiv.classList.remove('hidden')
+    submitBtn.disabled = false
+    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>ログイン'
   }
 }
 
 async function handleLogout() {
   await api.post('/api/logout')
   state.currentUser = null
+  state.members = []
+  state.items = []
+  state.evaluations = []
+  state.teamMembers = []
+  state.summary = []
   showLoginScreen()
 }
 
 // ==================== 管理者画面 ====================
 
 async function showAdminDashboard() {
-  await loadMembers()
-  await loadItems()
+  // データを一度だけ読み込み
+  if (state.members.length === 0) await loadMembers()
+  if (state.items.length === 0) await loadItems()
   
   document.getElementById('app').innerHTML = `
     <div class="min-h-screen bg-gray-50">
+      <!-- ローディングオーバーレイ -->
+      <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl">
+          <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+          <p class="mt-4 text-gray-700">読み込み中...</p>
+        </div>
+      </div>
+
       <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 py-4">
           <div class="flex justify-between items-center">
@@ -251,7 +289,13 @@ function showMembersTab() {
 
   document.getElementById('add-member-form').addEventListener('submit', async (e) => {
     e.preventDefault()
+    const btn = e.target.querySelector('button[type="submit"]')
+    const originalHtml = btn.innerHTML
+    
     try {
+      btn.disabled = true
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>追加中...'
+      
       await api.post('/api/members', {
         username: document.getElementById('new-username').value,
         name: document.getElementById('new-name').value,
@@ -262,6 +306,8 @@ function showMembersTab() {
       alert('メンバーを追加しました')
     } catch (error) {
       alert(error.response?.data?.error || 'エラーが発生しました')
+      btn.disabled = false
+      btn.innerHTML = originalHtml
     }
   })
 }
@@ -269,6 +315,7 @@ function showMembersTab() {
 async function deleteMember(id) {
   if (!confirm('このメンバーを削除しますか？')) return
   
+  showLoading()
   try {
     await api.delete(`/api/members/${id}`)
     await loadMembers()
@@ -276,6 +323,8 @@ async function deleteMember(id) {
     alert('メンバーを削除しました')
   } catch (error) {
     alert(error.response?.data?.error || 'エラーが発生しました')
+  } finally {
+    hideLoading()
   }
 }
 
@@ -318,7 +367,13 @@ function showItemsTab() {
 
   document.getElementById('add-item-form').addEventListener('submit', async (e) => {
     e.preventDefault()
+    const btn = e.target.querySelector('button[type="submit"]')
+    const originalHtml = btn.innerHTML
+    
     try {
+      btn.disabled = true
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>追加中...'
+      
       await api.post('/api/items', {
         name: document.getElementById('new-item-name').value,
         description: document.getElementById('new-item-desc').value,
@@ -329,6 +384,8 @@ function showItemsTab() {
       alert('評価項目を追加しました')
     } catch (error) {
       alert(error.response?.data?.error || 'エラーが発生しました')
+      btn.disabled = false
+      btn.innerHTML = originalHtml
     }
   })
 }
@@ -336,6 +393,7 @@ function showItemsTab() {
 async function deleteItem(id) {
   if (!confirm('この評価項目を削除しますか？関連する評価データも削除されます。')) return
   
+  showLoading()
   try {
     await api.delete(`/api/items/${id}`)
     await loadItems()
@@ -343,94 +401,117 @@ async function deleteItem(id) {
     alert('評価項目を削除しました')
   } catch (error) {
     alert(error.response?.data?.error || 'エラーが発生しました')
+  } finally {
+    hideLoading()
   }
 }
 
 async function showAdjustmentsTab() {
-  const result = await api.get('/api/admin/evaluations')
-  state.evaluations = result.evaluations
+  showLoading()
+  try {
+    const result = await api.get('/api/admin/evaluations')
+    state.evaluations = result.evaluations
 
-  const byTeam = {}
-  state.evaluations.forEach(ev => {
-    if (!byTeam[ev.evaluated_team]) byTeam[ev.evaluated_team] = []
-    byTeam[ev.evaluated_team].push(ev)
-  })
+    const byTeam = {}
+    state.evaluations.forEach(ev => {
+      if (!byTeam[ev.evaluated_team]) byTeam[ev.evaluated_team] = []
+      byTeam[ev.evaluated_team].push(ev)
+    })
 
-  document.getElementById('admin-content').innerHTML = `
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-bold mb-4"><i class="fas fa-edit mr-2"></i>採点調整</h2>
-      <div class="mb-4 text-sm text-gray-600">
-        <i class="fas fa-info-circle mr-2"></i>各メンバーの評価点数を調整できます
-      </div>
-      
-      <div class="space-y-6">
-        ${Object.keys(byTeam).sort().map(team => `
-          <div>
-            <h3 class="text-lg font-bold text-blue-600 mb-3">チーム${team}</h3>
-            <div class="overflow-x-auto">
-              <table class="min-w-full border">
-                <thead class="bg-gray-100">
-                  <tr>
-                    <th class="px-4 py-2 border text-left">評価者</th>
-                    <th class="px-4 py-2 border text-left">被評価者</th>
-                    <th class="px-4 py-2 border text-left">評価項目</th>
-                    <th class="px-4 py-2 border text-center">点数</th>
-                    <th class="px-4 py-2 border text-center">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${byTeam[team].map(ev => `
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-4 py-2 border">${ev.evaluator_name}</td>
-                      <td class="px-4 py-2 border">${ev.evaluated_name}</td>
-                      <td class="px-4 py-2 border">${ev.item_name}</td>
-                      <td class="px-4 py-2 border text-center">
-                        <input type="number" min="1" max="10" value="${ev.score}" 
-                          id="score-${ev.id}"
-                          class="w-16 px-2 py-1 border rounded text-center">
-                      </td>
-                      <td class="px-4 py-2 border text-center">
-                        <button onclick="updateScore(${ev.id})" 
-                          class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
-                          <i class="fas fa-save mr-1"></i>更新
-                        </button>
-                      </td>
+    document.getElementById('admin-content').innerHTML = `
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold mb-4"><i class="fas fa-edit mr-2"></i>採点調整</h2>
+        <div class="mb-4 text-sm text-gray-600">
+          <i class="fas fa-info-circle mr-2"></i>各メンバーの評価点数を調整できます
+        </div>
+        
+        <div class="space-y-6">
+          ${Object.keys(byTeam).sort().map(team => `
+            <div>
+              <h3 class="text-lg font-bold text-blue-600 mb-3">チーム${team}</h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full border">
+                  <thead class="bg-gray-100">
+                    <tr>
+                      <th class="px-4 py-2 border text-left">評価者</th>
+                      <th class="px-4 py-2 border text-left">被評価者</th>
+                      <th class="px-4 py-2 border text-left">評価項目</th>
+                      <th class="px-4 py-2 border text-center">点数</th>
+                      <th class="px-4 py-2 border text-center">操作</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${byTeam[team].map(ev => `
+                      <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2 border">${ev.evaluator_name}</td>
+                        <td class="px-4 py-2 border">${ev.evaluated_name}</td>
+                        <td class="px-4 py-2 border">${ev.item_name}</td>
+                        <td class="px-4 py-2 border text-center">
+                          <input type="number" min="1" max="10" value="${ev.score}" 
+                            id="score-${ev.id}"
+                            class="w-16 px-2 py-1 border rounded text-center">
+                        </td>
+                        <td class="px-4 py-2 border text-center">
+                          <button onclick="updateScore(${ev.id})" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                            <i class="fas fa-save mr-1"></i>更新
+                          </button>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        `).join('')}
-        ${Object.keys(byTeam).length === 0 ? '<p class="text-gray-400 text-center py-8">評価データがありません</p>' : ''}
+          `).join('')}
+          ${Object.keys(byTeam).length === 0 ? '<p class="text-gray-400 text-center py-8">評価データがありません</p>' : ''}
+        </div>
       </div>
-    </div>
-  `
+    `
+  } finally {
+    hideLoading()
+  }
 }
 
 async function updateScore(id) {
-  const newScore = parseInt(document.getElementById(`score-${id}`).value)
+  const input = document.getElementById(`score-${id}`)
+  const newScore = parseInt(input.value)
   
   if (newScore < 1 || newScore > 10) {
     alert('点数は1～10の範囲で入力してください')
     return
   }
 
+  const originalValue = input.value
+  input.disabled = true
+  
   try {
     await api.put(`/api/admin/evaluations/${id}`, { score: newScore })
     alert('点数を更新しました')
   } catch (error) {
     alert(error.response?.data?.error || 'エラーが発生しました')
+    input.value = originalValue
+  } finally {
+    input.disabled = false
   }
 }
 
 // ==================== 使用者画面 ====================
 
 async function showUserDashboard() {
-  await loadItems()
+  // 評価項目を一度だけ読み込み
+  if (state.items.length === 0) await loadItems()
   
   document.getElementById('app').innerHTML = `
     <div class="min-h-screen bg-gray-50">
+      <!-- ローディングオーバーレイ -->
+      <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl">
+          <i class="fas fa-spinner fa-spin text-4xl text-blue-500"></i>
+          <p class="mt-4 text-gray-700">読み込み中...</p>
+        </div>
+      </div>
+
       <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 py-4">
           <div class="flex justify-between items-center">
@@ -484,70 +565,79 @@ function showUserTab(tab) {
 }
 
 async function showEvaluationTab() {
-  const result = await api.get('/api/team-members')
-  state.teamMembers = result.members
+  showLoading()
+  try {
+    const result = await api.get('/api/team-members')
+    state.teamMembers = result.members
 
-  const myEvals = await api.get('/api/evaluations/my')
-  const evalMap = {}
-  myEvals.evaluations.forEach(ev => {
-    const key = `${ev.evaluated_id}_${ev.item_id}`
-    evalMap[key] = ev.score
-  })
+    const myEvals = await api.get('/api/evaluations/my')
+    const evalMap = {}
+    myEvals.evaluations.forEach(ev => {
+      const key = `${ev.evaluated_id}_${ev.item_id}`
+      evalMap[key] = ev.score
+    })
 
-  document.getElementById('user-content').innerHTML = `
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-bold mb-4">
-        <i class="fas fa-users mr-2"></i>チームメンバーを評価してください
-      </h2>
-      <p class="text-sm text-gray-600 mb-6">
-        <i class="fas fa-info-circle mr-2"></i>各項目を1～10点で評価してください（1:低い、10:高い）
-      </p>
-      
-      ${state.teamMembers.map(member => `
-        <div class="mb-8 p-6 bg-gray-50 rounded-lg">
-          <h3 class="text-lg font-bold text-blue-600 mb-4">
-            <i class="fas fa-user mr-2"></i>${member.name}さん
-          </h3>
-          <div class="space-y-4">
-            ${state.items.map(item => `
-              <div class="flex items-center justify-between">
-                <div class="flex-1">
-                  <div class="font-semibold">${item.name}</div>
-                  <div class="text-sm text-gray-600">${item.description || ''}</div>
-                </div>
-                <div class="flex items-center space-x-2 ml-4">
-                  <input type="number" min="1" max="10" 
-                    value="${evalMap[`${member.id}_${item.id}`] || ''}"
-                    placeholder="1-10"
-                    id="score-${member.id}-${item.id}"
-                    class="w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-500">
-                  <button onclick="saveEvaluation(${member.id}, ${item.id})"
-                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                    <i class="fas fa-save"></i>
-                  </button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('')}
-      
-      ${state.teamMembers.length === 0 ? `
-        <p class="text-gray-400 text-center py-8">
-          <i class="fas fa-info-circle mr-2"></i>評価対象のチームメンバーがいません
+    document.getElementById('user-content').innerHTML = `
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold mb-4">
+          <i class="fas fa-users mr-2"></i>チームメンバーを評価してください
+        </h2>
+        <p class="text-sm text-gray-600 mb-6">
+          <i class="fas fa-info-circle mr-2"></i>各項目を1～10点で評価してください（1:低い、10:高い）
         </p>
-      ` : ''}
-    </div>
-  `
+        
+        ${state.teamMembers.map(member => `
+          <div class="mb-8 p-6 bg-gray-50 rounded-lg">
+            <h3 class="text-lg font-bold text-blue-600 mb-4">
+              <i class="fas fa-user mr-2"></i>${member.name}さん
+            </h3>
+            <div class="space-y-4">
+              ${state.items.map(item => `
+                <div class="flex items-center justify-between">
+                  <div class="flex-1">
+                    <div class="font-semibold">${item.name}</div>
+                    <div class="text-sm text-gray-600">${item.description || ''}</div>
+                  </div>
+                  <div class="flex items-center space-x-2 ml-4">
+                    <input type="number" min="1" max="10" 
+                      value="${evalMap[`${member.id}_${item.id}`] || ''}"
+                      placeholder="1-10"
+                      id="score-${member.id}-${item.id}"
+                      class="w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-500">
+                    <button onclick="saveEvaluation(${member.id}, ${item.id})"
+                      class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+                      <i class="fas fa-save"></i>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+        
+        ${state.teamMembers.length === 0 ? `
+          <p class="text-gray-400 text-center py-8">
+            <i class="fas fa-info-circle mr-2"></i>評価対象のチームメンバーがいません
+          </p>
+        ` : ''}
+      </div>
+    `
+  } finally {
+    hideLoading()
+  }
 }
 
 async function saveEvaluation(evaluatedId, itemId) {
-  const score = parseInt(document.getElementById(`score-${evaluatedId}-${itemId}`).value)
+  const input = document.getElementById(`score-${evaluatedId}-${itemId}`)
+  const score = parseInt(input.value)
   
   if (!score || score < 1 || score > 10) {
     alert('1～10の数値を入力してください')
     return
   }
+
+  const originalValue = input.value
+  input.disabled = true
 
   try {
     await api.post('/api/evaluations', {
@@ -558,119 +648,132 @@ async function saveEvaluation(evaluatedId, itemId) {
     alert('評価を保存しました')
   } catch (error) {
     alert(error.response?.data?.error || 'エラーが発生しました')
+    input.value = originalValue
+  } finally {
+    input.disabled = false
   }
 }
 
 async function showMyResultsTab() {
-  const result = await api.get('/api/evaluations/my')
-  const evaluations = result.evaluations
+  showLoading()
+  try {
+    const result = await api.get('/api/evaluations/my')
+    const evaluations = result.evaluations
 
-  const byMember = {}
-  evaluations.forEach(ev => {
-    if (!byMember[ev.evaluated_name]) byMember[ev.evaluated_name] = []
-    byMember[ev.evaluated_name].push(ev)
-  })
+    const byMember = {}
+    evaluations.forEach(ev => {
+      if (!byMember[ev.evaluated_name]) byMember[ev.evaluated_name] = []
+      byMember[ev.evaluated_name].push(ev)
+    })
 
-  document.getElementById('user-content').innerHTML = `
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-bold mb-4">
-        <i class="fas fa-clipboard-list mr-2"></i>あなたの入力結果
-      </h2>
-      
-      <div class="space-y-6">
-        ${Object.keys(byMember).map(name => `
-          <div class="border-l-4 border-blue-500 pl-4">
-            <h3 class="text-lg font-bold text-blue-600 mb-3">${name}さん</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              ${byMember[name].map(ev => `
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                  <span class="font-semibold">${ev.item_name}</span>
-                  <span class="text-lg font-bold text-blue-600">${ev.score}点</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `).join('')}
+    document.getElementById('user-content').innerHTML = `
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold mb-4">
+          <i class="fas fa-clipboard-list mr-2"></i>あなたの入力結果
+        </h2>
         
-        ${evaluations.length === 0 ? `
-          <p class="text-gray-400 text-center py-8">
-            <i class="fas fa-info-circle mr-2"></i>まだ評価を入力していません
-          </p>
-        ` : ''}
+        <div class="space-y-6">
+          ${Object.keys(byMember).map(name => `
+            <div class="border-l-4 border-blue-500 pl-4">
+              <h3 class="text-lg font-bold text-blue-600 mb-3">${name}さん</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                ${byMember[name].map(ev => `
+                  <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                    <span class="font-semibold">${ev.item_name}</span>
+                    <span class="text-lg font-bold text-blue-600">${ev.score}点</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+          
+          ${evaluations.length === 0 ? `
+            <p class="text-gray-400 text-center py-8">
+              <i class="fas fa-info-circle mr-2"></i>まだ評価を入力していません
+            </p>
+          ` : ''}
+        </div>
       </div>
-    </div>
-  `
+    `
+  } finally {
+    hideLoading()
+  }
 }
 
 async function showSummaryTab() {
-  const result = await api.get('/api/evaluations/summary')
-  const summary = result.summary
+  showLoading()
+  try {
+    const result = await api.get('/api/evaluations/summary')
+    const summary = result.summary
 
-  const byMember = {}
-  summary.forEach(item => {
-    if (!byMember[item.name]) {
-      byMember[item.name] = { name: item.name, items: [], total: 0, count: 0 }
-    }
-    if (item.item_name) {
-      byMember[item.name].items.push({
-        name: item.item_name,
-        avg: parseFloat(item.avg_score).toFixed(1),
-        count: item.count
-      })
-      byMember[item.name].total += parseFloat(item.avg_score)
-      byMember[item.name].count++
-    }
-  })
+    const byMember = {}
+    summary.forEach(item => {
+      if (!byMember[item.name]) {
+        byMember[item.name] = { name: item.name, items: [], total: 0, count: 0 }
+      }
+      if (item.item_name) {
+        byMember[item.name].items.push({
+          name: item.item_name,
+          avg: parseFloat(item.avg_score).toFixed(1),
+          count: item.count
+        })
+        byMember[item.name].total += parseFloat(item.avg_score)
+        byMember[item.name].count++
+      }
+    })
 
-  const members = Object.values(byMember).filter(m => m.count > 0)
-  members.forEach(m => {
-    m.average = (m.total / m.count).toFixed(1)
-  })
+    const members = Object.values(byMember).filter(m => m.count > 0)
+    members.forEach(m => {
+      m.average = (m.total / m.count).toFixed(1)
+    })
 
-  document.getElementById('user-content').innerHTML = `
-    <div class="bg-white rounded-lg shadow p-6">
-      <h2 class="text-xl font-bold mb-4">
-        <i class="fas fa-chart-bar mr-2"></i>チーム${state.currentUser.team} 集計結果
-      </h2>
-      <p class="text-sm text-gray-600 mb-6">
-        <i class="fas fa-info-circle mr-2"></i>チームメンバーの平均評価点
-      </p>
-      
-      <div class="space-y-6">
-        ${members.map(member => `
-          <div class="border rounded-lg p-6">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold text-blue-600">
-                <i class="fas fa-user mr-2"></i>${member.name}さん
-              </h3>
-              <div class="text-right">
-                <div class="text-sm text-gray-600">総合平均</div>
-                <div class="text-2xl font-bold text-blue-600">${member.average}点</div>
+    document.getElementById('user-content').innerHTML = `
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold mb-4">
+          <i class="fas fa-chart-bar mr-2"></i>チーム${state.currentUser.team} 集計結果
+        </h2>
+        <p class="text-sm text-gray-600 mb-6">
+          <i class="fas fa-info-circle mr-2"></i>チームメンバーの平均評価点
+        </p>
+        
+        <div class="space-y-6">
+          ${members.map(member => `
+            <div class="border rounded-lg p-6">
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-blue-600">
+                  <i class="fas fa-user mr-2"></i>${member.name}さん
+                </h3>
+                <div class="text-right">
+                  <div class="text-sm text-gray-600">総合平均</div>
+                  <div class="text-2xl font-bold text-blue-600">${member.average}点</div>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                ${member.items.map(item => `
+                  <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+                    <div>
+                      <div class="font-semibold">${item.name}</div>
+                      <div class="text-xs text-gray-500">${item.count}件の評価</div>
+                    </div>
+                    <span class="text-lg font-bold text-blue-600">${item.avg}点</span>
+                  </div>
+                `).join('')}
               </div>
             </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              ${member.items.map(item => `
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                  <div>
-                    <div class="font-semibold">${item.name}</div>
-                    <div class="text-xs text-gray-500">${item.count}件の評価</div>
-                  </div>
-                  <span class="text-lg font-bold text-blue-600">${item.avg}点</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `).join('')}
-        
-        ${members.length === 0 ? `
-          <p class="text-gray-400 text-center py-8">
-            <i class="fas fa-info-circle mr-2"></i>まだ評価データがありません
-          </p>
-        ` : ''}
+          `).join('')}
+          
+          ${members.length === 0 ? `
+            <p class="text-gray-400 text-center py-8">
+              <i class="fas fa-info-circle mr-2"></i>まだ評価データがありません
+            </p>
+          ` : ''}
+        </div>
       </div>
-    </div>
-  `
+    `
+  } finally {
+    hideLoading()
+  }
 }
 
 // ==================== 初期化 ====================
@@ -681,9 +784,9 @@ async function init() {
     state.currentUser = result.user
     
     if (result.user.role === 'admin') {
-      showAdminDashboard()
+      await showAdminDashboard()
     } else {
-      showUserDashboard()
+      await showUserDashboard()
     }
   } catch (error) {
     showLoginScreen()
