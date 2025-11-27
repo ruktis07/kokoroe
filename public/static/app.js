@@ -268,15 +268,24 @@ function showMembersTab() {
           <div class="space-y-2">
             ${membersByTeam[team].map(member => `
               <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div>
+                <div class="flex-1">
                   <div class="font-semibold">${member.name}</div>
                   <div class="text-sm text-gray-600">${member.username}</div>
                 </div>
                 ${member.role !== 'admin' ? `
-                  <button onclick="deleteMember(${member.id})" 
-                    class="text-red-500 hover:text-red-700">
-                    <i class="fas fa-trash"></i>
-                  </button>
+                  <div class="flex items-center space-x-2">
+                    <select id="team-${member.id}" class="px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500">
+                      ${teams.map(t => `<option value="${t}" ${t === member.team ? 'selected' : ''}>チーム${t}</option>`).join('')}
+                    </select>
+                    <button onclick="updateMemberTeam(${member.id}, '${member.name}')" 
+                      class="text-green-600 hover:text-green-700" title="チーム変更">
+                      <i class="fas fa-save"></i>
+                    </button>
+                    <button onclick="deleteMember(${member.id})" 
+                      class="text-red-500 hover:text-red-700" title="削除">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </div>
                 ` : '<span class="text-xs text-gray-500">管理者</span>'}
               </div>
             `).join('')}
@@ -310,6 +319,28 @@ function showMembersTab() {
       btn.innerHTML = originalHtml
     }
   })
+}
+
+async function updateMemberTeam(id, name) {
+  const select = document.getElementById(`team-${id}`)
+  const newTeam = select.value
+  
+  if (!confirm(`${name}さんをチーム${newTeam}に移動しますか？`)) return
+  
+  showLoading()
+  try {
+    await api.put(`/api/members/${id}`, {
+      name: name,
+      team: newTeam
+    })
+    await loadMembers()
+    showMembersTab()
+    alert(`${name}さんをチーム${newTeam}に移動しました`)
+  } catch (error) {
+    alert(error.response?.data?.error || 'エラーが発生しました')
+  } finally {
+    hideLoading()
+  }
 }
 
 async function deleteMember(id) {
@@ -797,6 +828,7 @@ async function init() {
 window.handleLogout = handleLogout
 window.showAdminTab = showAdminTab
 window.showUserTab = showUserTab
+window.updateMemberTeam = updateMemberTeam
 window.deleteMember = deleteMember
 window.deleteItem = deleteItem
 window.updateScore = updateScore
