@@ -363,8 +363,10 @@ function showItemsTab() {
   document.getElementById('admin-content').innerHTML = `
     <div class="bg-white rounded-lg shadow p-6 mb-6">
       <h2 class="text-xl font-bold mb-4"><i class="fas fa-plus-circle mr-2"></i>評価項目追加</h2>
-      <form id="add-item-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <input type="text" id="new-item-name" placeholder="項目名" required
+      <form id="add-item-form" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <input type="text" id="new-item-major" placeholder="大項目" required
+          class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+        <input type="text" id="new-item-minor" placeholder="中項目" required
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
         <input type="text" id="new-item-desc" placeholder="説明"
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
@@ -380,16 +382,47 @@ function showItemsTab() {
       <h2 class="text-xl font-bold mb-4"><i class="fas fa-list mr-2"></i>評価項目一覧</h2>
       <div class="space-y-3">
         ${state.items.map(item => `
-          <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-            <div class="flex-1">
-              <div class="font-semibold text-lg">${item.name}</div>
-              <div class="text-sm text-gray-600">${item.description || ''}</div>
-              <div class="text-xs text-gray-400 mt-1">表示順: ${item.display_order}</div>
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <div id="item-display-${item.id}" class="flex justify-between items-center">
+              <div class="flex-1">
+                <div class="font-semibold text-lg text-blue-600">${item.major_category || ''}</div>
+                <div class="font-medium">${item.minor_category || ''}</div>
+                <div class="text-sm text-gray-600 mt-1">${item.description || ''}</div>
+                <div class="text-xs text-gray-400 mt-1">表示順: ${item.display_order}</div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="editItem(${item.id})" 
+                  class="text-blue-600 hover:text-blue-700" title="編集">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button onclick="deleteItem(${item.id})" 
+                  class="text-red-500 hover:text-red-700" title="削除">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
             </div>
-            <button onclick="deleteItem(${item.id})" 
-              class="text-red-500 hover:text-red-700 ml-4">
-              <i class="fas fa-trash"></i>
-            </button>
+            <div id="item-edit-${item.id}" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <input type="text" id="edit-major-${item.id}" value="${item.major_category || ''}" placeholder="大項目"
+                  class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="edit-minor-${item.id}" value="${item.minor_category || ''}" placeholder="中項目"
+                  class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="edit-desc-${item.id}" value="${item.description || ''}" placeholder="説明"
+                  class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                <input type="number" id="edit-order-${item.id}" value="${item.display_order}" placeholder="表示順"
+                  class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                <div class="flex space-x-2">
+                  <button onclick="saveEditItem(${item.id})" 
+                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex-1">
+                    <i class="fas fa-save mr-1"></i>保存
+                  </button>
+                  <button onclick="cancelEditItem(${item.id})" 
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex-1">
+                    <i class="fas fa-times mr-1"></i>キャンセル
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -406,7 +439,8 @@ function showItemsTab() {
       btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>追加中...'
       
       await api.post('/api/items', {
-        name: document.getElementById('new-item-name').value,
+        major_category: document.getElementById('new-item-major').value,
+        minor_category: document.getElementById('new-item-minor').value,
         description: document.getElementById('new-item-desc').value,
         display_order: parseInt(document.getElementById('new-item-order').value)
       })
@@ -419,6 +453,35 @@ function showItemsTab() {
       btn.innerHTML = originalHtml
     }
   })
+}
+
+function editItem(id) {
+  document.getElementById(`item-display-${id}`).classList.add('hidden')
+  document.getElementById(`item-edit-${id}`).classList.remove('hidden')
+}
+
+function cancelEditItem(id) {
+  document.getElementById(`item-display-${id}`).classList.remove('hidden')
+  document.getElementById(`item-edit-${id}`).classList.add('hidden')
+}
+
+async function saveEditItem(id) {
+  showLoading()
+  try {
+    await api.put(`/api/items/${id}`, {
+      major_category: document.getElementById(`edit-major-${id}`).value,
+      minor_category: document.getElementById(`edit-minor-${id}`).value,
+      description: document.getElementById(`edit-desc-${id}`).value,
+      display_order: parseInt(document.getElementById(`edit-order-${id}`).value)
+    })
+    await loadItems()
+    showItemsTab()
+    alert('評価項目を更新しました')
+  } catch (error) {
+    alert(error.response?.data?.error || 'エラーが発生しました')
+  } finally {
+    hideLoading()
+  }
 }
 
 async function deleteItem(id) {
@@ -610,12 +673,22 @@ async function showEvaluationTab() {
 
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold mb-4">
-          <i class="fas fa-users mr-2"></i>チームメンバーを評価してください
-        </h2>
-        <p class="text-sm text-gray-600 mb-6">
-          <i class="fas fa-info-circle mr-2"></i>各項目を1～10点で評価してください（1:低い、10:高い）
-        </p>
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="text-xl font-bold">
+              <i class="fas fa-users mr-2"></i>チームメンバーを評価してください
+            </h2>
+            <p class="text-sm text-gray-600 mt-2">
+              <i class="fas fa-info-circle mr-2"></i>各項目を1～10点で評価してください（1:低い、10:高い）
+            </p>
+          </div>
+          ${state.teamMembers.length > 0 ? `
+            <button onclick="saveAllEvaluations()" id="save-all-btn"
+              class="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg">
+              <i class="fas fa-save mr-2"></i>全て保存
+            </button>
+          ` : ''}
+        </div>
         
         ${state.teamMembers.map(member => `
           <div class="mb-8 p-6 bg-gray-50 rounded-lg">
@@ -626,19 +699,17 @@ async function showEvaluationTab() {
               ${state.items.map(item => `
                 <div class="flex items-center justify-between">
                   <div class="flex-1">
-                    <div class="font-semibold">${item.name}</div>
+                    <div class="font-semibold text-blue-600">${item.major_category || ''}</div>
+                    <div class="font-medium">${item.minor_category || ''}</div>
                     <div class="text-sm text-gray-600">${item.description || ''}</div>
                   </div>
-                  <div class="flex items-center space-x-2 ml-4">
+                  <div class="ml-4">
                     <input type="number" min="1" max="10" 
                       value="${evalMap[`${member.id}_${item.id}`] || ''}"
                       placeholder="1-10"
-                      id="score-${member.id}-${item.id}"
-                      class="w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-500">
-                    <button onclick="saveEvaluation(${member.id}, ${item.id})"
-                      class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                      <i class="fas fa-save"></i>
-                    </button>
+                      data-member="${member.id}"
+                      data-item="${item.id}"
+                      class="evaluation-input w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-500">
                   </div>
                 </div>
               `).join('')}
@@ -651,10 +722,64 @@ async function showEvaluationTab() {
             <i class="fas fa-info-circle mr-2"></i>評価対象のチームメンバーがいません
           </p>
         ` : ''}
+        
+        ${state.teamMembers.length > 0 ? `
+          <div class="flex justify-center mt-6">
+            <button onclick="saveAllEvaluations()"
+              class="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 rounded-lg text-lg">
+              <i class="fas fa-save mr-2"></i>全て保存
+            </button>
+          </div>
+        ` : ''}
       </div>
     `
   } finally {
     hideLoading()
+  }
+}
+
+async function saveAllEvaluations() {
+  const inputs = document.querySelectorAll('.evaluation-input')
+  const evaluations = []
+  
+  let hasError = false
+  inputs.forEach(input => {
+    const score = parseInt(input.value)
+    if (input.value && (score < 1 || score > 10)) {
+      hasError = true
+    }
+    if (score >= 1 && score <= 10) {
+      evaluations.push({
+        evaluated_id: parseInt(input.dataset.member),
+        item_id: parseInt(input.dataset.item),
+        score: score
+      })
+    }
+  })
+  
+  if (hasError) {
+    alert('1～10の範囲で入力してください')
+    return
+  }
+  
+  if (evaluations.length === 0) {
+    alert('評価を入力してください')
+    return
+  }
+  
+  const btn = document.getElementById('save-all-btn') || event.target
+  const originalHtml = btn.innerHTML
+  btn.disabled = true
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>保存中...'
+  
+  try {
+    await api.post('/api/evaluations/bulk', { evaluations })
+    alert(`${evaluations.length}件の評価を保存しました`)
+  } catch (error) {
+    alert(error.response?.data?.error || 'エラーが発生しました')
+  } finally {
+    btn.disabled = false
+    btn.innerHTML = originalHtml
   }
 }
 
@@ -830,8 +955,12 @@ window.showAdminTab = showAdminTab
 window.showUserTab = showUserTab
 window.updateMemberTeam = updateMemberTeam
 window.deleteMember = deleteMember
+window.editItem = editItem
+window.saveEditItem = saveEditItem
+window.cancelEditItem = cancelEditItem
 window.deleteItem = deleteItem
 window.updateScore = updateScore
+window.saveAllEvaluations = saveAllEvaluations
 window.saveEvaluation = saveEvaluation
 
 // アプリ起動

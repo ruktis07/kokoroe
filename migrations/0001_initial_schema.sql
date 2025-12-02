@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS members (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
-  team TEXT NOT NULL CHECK(team IN ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J')),
+  team TEXT CHECK(team IN ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J')),
   role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
   password TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS members (
 -- 評価項目テーブル
 CREATE TABLE IF NOT EXISTS evaluation_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  major_category TEXT NOT NULL DEFAULT '',
+  minor_category TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   description TEXT,
   display_order INTEGER DEFAULT 0,
@@ -41,6 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_evaluated ON evaluations(evaluated_id
 CREATE INDEX IF NOT EXISTS idx_evaluations_item ON evaluations(item_id);
 CREATE INDEX IF NOT EXISTS idx_evaluation_items_order ON evaluation_items(display_order);
 
--- 管理者アカウント初期データ
+-- 管理者アカウント初期データ（チーム所属なし）
 INSERT OR IGNORE INTO members (username, name, team, role, password) 
-VALUES ('admin', '管理者', 'A', 'admin', 'admin');
+VALUES ('admin', '管理者', NULL, 'admin', 'admin');

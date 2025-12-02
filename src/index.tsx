@@ -182,15 +182,16 @@ app.get('/api/items', async (c) => {
 
 // 評価項目追加
 app.post('/api/items', requireAdmin, async (c) => {
-  const { name, description, display_order } = await c.req.json()
+  const { major_category, minor_category, description, display_order } = await c.req.json()
   
-  if (!name) {
-    return c.json({ error: '項目名を入力してください' }, 400)
+  if (!major_category || !minor_category) {
+    return c.json({ error: '大項目と中項目を入力してください' }, 400)
   }
 
+  const name = `${major_category} - ${minor_category}`
   const result = await c.env.DB.prepare(
-    'INSERT INTO evaluation_items (name, description, display_order) VALUES (?, ?, ?)'
-  ).bind(name, description || '', display_order || 999).run()
+    'INSERT INTO evaluation_items (major_category, minor_category, name, description, display_order) VALUES (?, ?, ?, ?, ?)'
+  ).bind(major_category, minor_category, name, description || '', display_order || 999).run()
 
   return c.json({ success: true, id: result.meta.last_row_id })
 })
@@ -198,11 +199,12 @@ app.post('/api/items', requireAdmin, async (c) => {
 // 評価項目更新
 app.put('/api/items/:id', requireAdmin, async (c) => {
   const id = c.req.param('id')
-  const { name, description, display_order } = await c.req.json()
+  const { major_category, minor_category, description, display_order } = await c.req.json()
   
+  const name = `${major_category} - ${minor_category}`
   await c.env.DB.prepare(
-    'UPDATE evaluation_items SET name = ?, description = ?, display_order = ? WHERE id = ?'
-  ).bind(name, description, display_order, id).run()
+    'UPDATE evaluation_items SET major_category = ?, minor_category = ?, name = ?, description = ?, display_order = ? WHERE id = ?'
+  ).bind(major_category, minor_category, name, description, display_order, id).run()
 
   return c.json({ success: true })
 })
@@ -272,6 +274,34 @@ app.post('/api/evaluations', requireAuth, async (c) => {
   `).bind(currentUser.id, evaluated_id, item_id, score, score).run()
 
   return c.json({ success: true })
+})
+
+// 評価データ一括保存
+app.post('/api/evaluations/bulk', requireAuth, async (c) => {
+  const currentUser = c.get('currentUser')
+  const { evaluations } = await c.req.json()
+  
+  if (!evaluations || !Array.isArray(evaluations)) {
+    return c.json({ error: '評価データが不正です' }, 400)
+  }
+
+  // トランザクション風に複数のINSERTを実行
+  for (const evaluation of evaluations) {
+    const { evaluated_id, item_id, score } = evaluation
+    
+    if (!evaluated_id || !item_id || !score) continue
+    if (score < 1 || score > 10) continue
+    if (evaluated_id === currentUser.id) continue
+
+    await c.env.DB.prepare(`
+      INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(evaluator_id, evaluated_id, item_id) 
+      DO UPDATE SET score = ?, updated_at = CURRENT_TIMESTAMP
+    `).bind(currentUser.id, evaluated_id, item_id, score, score).run()
+  }
+
+  return c.json({ success: true, count: evaluations.length })
 })
 
 // 集計結果取得（チーム別）
