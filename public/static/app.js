@@ -673,10 +673,10 @@ async function showEvaluationTab() {
 
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex justify-between items-center mb-6">
           <div>
             <h2 class="text-xl font-bold">
-              <i class="fas fa-users mr-2"></i>チームメンバーを評価してください
+              <i class="fas fa-users mr-2"></i>チームメンバー評価表
             </h2>
             <p class="text-sm text-gray-600 mt-2">
               <i class="fas fa-info-circle mr-2"></i>各項目を1～10点で評価してください（1:低い、10:高い）
@@ -690,47 +690,65 @@ async function showEvaluationTab() {
           ` : ''}
         </div>
         
-        ${state.teamMembers.map(member => `
-          <div class="mb-8 p-6 bg-gray-50 rounded-lg">
-            <h3 class="text-lg font-bold text-blue-600 mb-4">
-              <i class="fas fa-user mr-2"></i>${member.name}さん
-            </h3>
-            <div class="space-y-4">
-              ${state.items.map(item => `
-                <div class="flex items-center justify-between">
-                  <div class="flex-1">
-                    <div class="font-semibold text-blue-600">${item.major_category || ''}</div>
-                    <div class="font-medium">${item.minor_category || ''}</div>
-                    <div class="text-sm text-gray-600">${item.description || ''}</div>
-                  </div>
-                  <div class="ml-4">
-                    <input type="number" min="1" max="10" 
-                      value="${evalMap[`${member.id}_${item.id}`] || ''}"
-                      placeholder="1-10"
-                      data-member="${member.id}"
-                      data-item="${item.id}"
-                      class="evaluation-input w-20 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-blue-500">
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `).join('')}
-        
-        ${state.teamMembers.length === 0 ? `
-          <p class="text-gray-400 text-center py-8">
-            <i class="fas fa-info-circle mr-2"></i>評価対象のチームメンバーがいません
-          </p>
-        ` : ''}
-        
         ${state.teamMembers.length > 0 ? `
+          <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse border border-gray-300">
+              <thead>
+                <tr>
+                  <th class="border border-gray-300 bg-gray-700 text-white px-4 py-3 text-left font-bold sticky left-0 z-10">
+                    被評価者
+                  </th>
+                  ${state.items.map(item => `
+                    <th class="border border-gray-300 bg-blue-700 text-white px-4 py-3 text-center min-w-[120px]">
+                      <div class="font-bold text-sm">${item.major_category || ''}</div>
+                      <div class="text-xs mt-1 font-normal">${item.minor_category || ''}</div>
+                    </th>
+                  `).join('')}
+                </tr>
+                <tr>
+                  <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-xs text-gray-600 sticky left-0 z-10">
+                    評価項目の説明
+                  </td>
+                  ${state.items.map(item => `
+                    <td class="border border-gray-300 bg-gray-100 px-2 py-2 text-xs text-gray-600 text-center">
+                      ${item.description || ''}
+                    </td>
+                  `).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${state.teamMembers.map(member => `
+                  <tr class="hover:bg-blue-50">
+                    <td class="border border-gray-300 bg-white px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10">
+                      ${member.name}
+                    </td>
+                    ${state.items.map(item => `
+                      <td class="border border-gray-300 bg-white px-2 py-2 text-center">
+                        <input type="number" min="1" max="10" 
+                          value="${evalMap[`${member.id}_${item.id}`] || ''}"
+                          placeholder="-"
+                          data-member="${member.id}"
+                          data-item="${item.id}"
+                          class="evaluation-input w-16 px-2 py-2 border-2 border-gray-300 rounded text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      </td>
+                    `).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
           <div class="flex justify-center mt-6">
             <button onclick="saveAllEvaluations()"
               class="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 rounded-lg text-lg">
               <i class="fas fa-save mr-2"></i>全て保存
             </button>
           </div>
-        ` : ''}
+        ` : `
+          <p class="text-gray-400 text-center py-8">
+            <i class="fas fa-info-circle mr-2"></i>評価対象のチームメンバーがいません
+          </p>
+        `}
       </div>
     `
   } finally {
