@@ -79,11 +79,11 @@ function showLoginScreen() {
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           </div>
           
-          <div id="password-field" class="hidden">
+          <div id="password-field">
             <label class="block text-sm font-medium text-gray-700 mb-2">
               <i class="fas fa-lock mr-2"></i>パスワード
             </label>
-            <input type="password" id="password"
+            <input type="password" id="password" required
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
           </div>
           
@@ -95,23 +95,11 @@ function showLoginScreen() {
         
         <div class="mt-6 text-center text-sm text-gray-600">
           <p>管理者: admin / admin</p>
-          <p>使用者: 登録されたユーザー名</p>
+          <p>使用者: ユーザー名 / ユーザー名（初期パスワード）</p>
         </div>
       </div>
     </div>
   `
-
-  // ユーザー名入力で管理者判定
-  document.getElementById('username').addEventListener('input', (e) => {
-    const passwordField = document.getElementById('password-field')
-    if (e.target.value === 'admin') {
-      passwordField.classList.remove('hidden')
-      document.getElementById('password').required = true
-    } else {
-      passwordField.classList.add('hidden')
-      document.getElementById('password').required = false
-    }
-  })
 
   document.getElementById('login-form').addEventListener('submit', handleLogin)
 }
@@ -360,6 +348,11 @@ async function deleteMember(id) {
 }
 
 function showItemsTab() {
+  // 表示順の最大値を取得（+1を自動設定）
+  const maxOrder = state.items.length > 0 
+    ? Math.max(...state.items.map(item => item.display_order || 0)) + 1 
+    : 1
+
   document.getElementById('admin-content').innerHTML = `
     <div class="bg-white rounded-lg shadow p-6 mb-6">
       <h2 class="text-xl font-bold mb-4"><i class="fas fa-plus-circle mr-2"></i>評価項目追加</h2>
@@ -370,7 +363,7 @@ function showItemsTab() {
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
         <input type="text" id="new-item-desc" placeholder="説明"
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-        <input type="number" id="new-item-order" placeholder="表示順" value="999"
+        <input type="number" id="new-item-order" placeholder="表示順" value="${maxOrder}"
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
         <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">
           <i class="fas fa-plus mr-2"></i>追加
@@ -500,23 +493,46 @@ async function deleteItem(id) {
   }
 }
 
-async function showAdjustmentsTab() {
+async function showAdjustmentsTab(filterEvaluator = '') {
   showLoading()
   try {
     const result = await api.get('/api/admin/evaluations')
     state.evaluations = result.evaluations
 
+    // 評価者の一覧を取得
+    const evaluators = [...new Set(state.evaluations.map(ev => ev.evaluator_name))].sort()
+    
+    // フィルター適用
+    const filteredEvals = filterEvaluator 
+      ? state.evaluations.filter(ev => ev.evaluator_name === filterEvaluator)
+      : state.evaluations
+
     const byTeam = {}
-    state.evaluations.forEach(ev => {
+    filteredEvals.forEach(ev => {
       if (!byTeam[ev.evaluated_team]) byTeam[ev.evaluated_team] = []
       byTeam[ev.evaluated_team].push(ev)
     })
 
     document.getElementById('admin-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold mb-4"><i class="fas fa-edit mr-2"></i>採点調整</h2>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold"><i class="fas fa-edit mr-2"></i>採点調整</h2>
+          <div class="flex items-center space-x-3">
+            <label class="text-sm font-medium text-gray-700">
+              <i class="fas fa-filter mr-2"></i>評価者で絞り込み:
+            </label>
+            <select id="evaluator-filter" onchange="filterAdjustments(this.value)"
+              class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="">全員</option>
+              ${evaluators.map(name => `
+                <option value="${name}" ${name === filterEvaluator ? 'selected' : ''}>${name}</option>
+              `).join('')}
+            </select>
+          </div>
+        </div>
         <div class="mb-4 text-sm text-gray-600">
           <i class="fas fa-info-circle mr-2"></i>各メンバーの評価点数を調整できます
+          ${filterEvaluator ? `<span class="ml-2 text-blue-600 font-semibold">（${filterEvaluator}さんの評価のみ表示中）</span>` : ''}
         </div>
         
         <div class="space-y-6">
@@ -565,6 +581,10 @@ async function showAdjustmentsTab() {
   } finally {
     hideLoading()
   }
+}
+
+function filterAdjustments(evaluatorName) {
+  showAdjustmentsTab(evaluatorName)
 }
 
 async function updateScore(id) {
@@ -977,6 +997,7 @@ window.editItem = editItem
 window.saveEditItem = saveEditItem
 window.cancelEditItem = cancelEditItem
 window.deleteItem = deleteItem
+window.filterAdjustments = filterAdjustments
 window.updateScore = updateScore
 window.saveAllEvaluations = saveAllEvaluations
 window.saveEvaluation = saveEvaluation

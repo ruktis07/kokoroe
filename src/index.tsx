@@ -65,11 +65,13 @@ app.post('/api/login', async (c) => {
 
   const user = results[0] as Member
 
-  // 管理者の場合はパスワードチェック
-  if (user.role === 'admin') {
-    if (password !== 'admin') {
-      return c.json({ error: 'パスワードが正しくありません' }, 401)
-    }
+  // パスワードチェック（管理者とユーザー共通）
+  if (!password) {
+    return c.json({ error: 'パスワードを入力してください' }, 400)
+  }
+
+  if (user.password !== password) {
+    return c.json({ error: 'パスワードが正しくありません' }, 401)
   }
 
   // セッション設定
@@ -237,13 +239,13 @@ app.get('/api/evaluations/my', requireAuth, async (c) => {
   return c.json({ evaluations: results })
 })
 
-// チームメンバー取得（自分以外）
+// チームメンバー取得（自己評価含む）
 app.get('/api/team-members', requireAuth, async (c) => {
   const currentUser = c.get('currentUser')
   
   const { results } = await c.env.DB.prepare(
-    'SELECT id, username, name, team FROM members WHERE team = ? AND id != ? ORDER BY name'
-  ).bind(currentUser.team, currentUser.id).all()
+    'SELECT id, username, name, team FROM members WHERE team = ? ORDER BY name'
+  ).bind(currentUser.team).all()
   
   return c.json({ members: results })
 })
@@ -259,11 +261,6 @@ app.post('/api/evaluations', requireAuth, async (c) => {
 
   if (score < 1 || score > 10) {
     return c.json({ error: '評価は1～10の範囲で入力してください' }, 400)
-  }
-
-  // 自分自身の評価は不可
-  if (evaluated_id === currentUser.id) {
-    return c.json({ error: '自分自身を評価することはできません' }, 400)
   }
 
   await c.env.DB.prepare(`
@@ -291,7 +288,6 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
     
     if (!evaluated_id || !item_id || !score) continue
     if (score < 1 || score > 10) continue
-    if (evaluated_id === currentUser.id) continue
 
     await c.env.DB.prepare(`
       INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, updated_at)
