@@ -7,13 +7,14 @@ INSERT OR IGNORE INTO evaluation_items (id, major_category, minor_category, name
   (5, '専門性', '専門スキル', '専門性 - 専門スキル', '担当業務に必要な専門知識と技術', 5);
 
 -- テストデータ: メンバー（チームA）
+-- パスワードはユーザー名と同じ
 INSERT OR IGNORE INTO members (id, username, name, team, role, password) VALUES 
-  (2, 'user001', '田中太郎', 'A', 'user', NULL),
-  (3, 'user002', '佐藤花子', 'A', 'user', NULL),
-  (4, 'user003', '鈴木一郎', 'A', 'user', NULL);
+  (2, 'user001', '田中太郎', 'A', 'user', 'user001'),
+  (3, 'user002', '佐藤花子', 'A', 'user', 'user002'),
+  (4, 'user003', '鈴木一郎', 'A', 'user', 'user003');
 
 -- テストデータ: メンバー（チームB）
 INSERT OR IGNORE INTO members (id, username, name, team, role, password) VALUES 
-  (5, 'user004', '高橋美咲', 'B', 'user', NULL),
-  (6, 'user005', '伊藤健太', 'B', 'user', NULL),
-  (7, 'user006', '渡辺由美', 'B', 'user', NULL);
+  (5, 'user004', '高橋美咲', 'B', 'user', 'user004'),
+  (6, 'user005', '伊藤健太', 'B', 'user', 'user005'),
+  (7, 'user006', '渡辺由美', 'B', 'user', 'user006');
