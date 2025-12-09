@@ -497,7 +497,9 @@ async function showAdjustmentsTab(filterEvaluator = '') {
   showLoading()
   try {
     const result = await api.get('/api/admin/evaluations')
+    const itemsResult = await api.get('/api/items')
     state.evaluations = result.evaluations
+    state.items = itemsResult.items
 
     // 評価者の一覧を取得
     const evaluators = [...new Set(state.evaluations.map(ev => ev.evaluator_name))].sort()
@@ -507,10 +509,34 @@ async function showAdjustmentsTab(filterEvaluator = '') {
       ? state.evaluations.filter(ev => ev.evaluator_name === filterEvaluator)
       : state.evaluations
 
+    // データを整形（被評価者×評価項目のマトリックス形式）
+    // チーム別 → 評価者別 → 被評価者別に整理
     const byTeam = {}
+    
     filteredEvals.forEach(ev => {
-      if (!byTeam[ev.evaluated_team]) byTeam[ev.evaluated_team] = []
-      byTeam[ev.evaluated_team].push(ev)
+      const team = ev.evaluated_team
+      if (!byTeam[team]) {
+        byTeam[team] = {}
+      }
+      
+      const evaluatorKey = ev.evaluator_name
+      if (!byTeam[team][evaluatorKey]) {
+        byTeam[team][evaluatorKey] = {}
+      }
+      
+      const evaluatedKey = ev.evaluated_name
+      if (!byTeam[team][evaluatorKey][evaluatedKey]) {
+        byTeam[team][evaluatorKey][evaluatedKey] = {
+          evaluated_id: ev.evaluated_id,
+          items: {}
+        }
+      }
+      
+      byTeam[team][evaluatorKey][evaluatedKey].items[ev.item_id] = {
+        id: ev.id,
+        score: ev.score,
+        item_name: ev.item_name
+      }
     })
 
     document.getElementById('admin-content').innerHTML = `
@@ -535,43 +561,63 @@ async function showAdjustmentsTab(filterEvaluator = '') {
           ${filterEvaluator ? `<span class="ml-2 text-blue-600 font-semibold">（${filterEvaluator}さんの評価のみ表示中）</span>` : ''}
         </div>
         
-        <div class="space-y-6">
+        <div class="space-y-8">
           ${Object.keys(byTeam).sort().map(team => `
             <div>
-              <h3 class="text-lg font-bold text-blue-600 mb-3">チーム${team}</h3>
-              <div class="overflow-x-auto">
-                <table class="min-w-full border">
-                  <thead class="bg-gray-100">
-                    <tr>
-                      <th class="px-4 py-2 border text-left">評価者</th>
-                      <th class="px-4 py-2 border text-left">被評価者</th>
-                      <th class="px-4 py-2 border text-left">評価項目</th>
-                      <th class="px-4 py-2 border text-center">点数</th>
-                      <th class="px-4 py-2 border text-center">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${byTeam[team].map(ev => `
-                      <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-2 border">${ev.evaluator_name}</td>
-                        <td class="px-4 py-2 border">${ev.evaluated_name}</td>
-                        <td class="px-4 py-2 border">${ev.item_name}</td>
-                        <td class="px-4 py-2 border text-center">
-                          <input type="number" min="1" max="10" value="${ev.score}" 
-                            id="score-${ev.id}"
-                            class="w-16 px-2 py-1 border rounded text-center">
-                        </td>
-                        <td class="px-4 py-2 border text-center">
-                          <button onclick="updateScore(${ev.id})" 
-                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
-                            <i class="fas fa-save mr-1"></i>更新
-                          </button>
-                        </td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+              <h3 class="text-lg font-bold text-blue-600 mb-4">チーム${team}</h3>
+              
+              ${Object.keys(byTeam[team]).sort().map(evaluatorName => `
+                <div class="mb-6">
+                  <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-4 border-green-500">
+                    <i class="fas fa-user mr-2"></i>評価者: ${evaluatorName}
+                  </h4>
+                  
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr>
+                          <th class="border border-gray-300 bg-gray-700 text-white px-3 py-3 text-left sticky left-0 z-20" style="min-width: 120px;">
+                            被評価者
+                          </th>
+                          ${state.items.map(item => `
+                            <th class="border border-gray-300 bg-blue-700 text-white px-3 py-2 text-center" style="min-width: 120px;">
+                              <div class="text-sm font-bold">${item.major_category}</div>
+                              <div class="text-xs font-normal">${item.minor_category}</div>
+                            </th>
+                          `).join('')}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${Object.keys(byTeam[team][evaluatorName]).sort().map(evaluatedName => {
+                          const member = byTeam[team][evaluatorName][evaluatedName]
+                          return `
+                            <tr class="hover:bg-blue-50">
+                              <td class="border border-gray-300 bg-white px-3 py-2 font-semibold sticky left-0 z-10">
+                                ${evaluatedName}
+                              </td>
+                              ${state.items.map(item => {
+                                const evaluation = member.items[item.id]
+                                return `
+                                  <td class="border border-gray-300 bg-white px-2 py-2 text-center">
+                                    ${evaluation ? `
+                                      <input type="number" min="1" max="10" value="${evaluation.score}" 
+                                        id="score-${evaluation.id}"
+                                        onchange="updateScore(${evaluation.id})"
+                                        class="w-14 px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    ` : `
+                                      <span class="text-gray-400 text-sm">-</span>
+                                    `}
+                                  </td>
+                                `
+                              }).join('')}
+                            </tr>
+                          `
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              `).join('')}
             </div>
           `).join('')}
           ${Object.keys(byTeam).length === 0 ? '<p class="text-gray-400 text-center py-8">評価データがありません</p>' : ''}
@@ -597,14 +643,20 @@ async function updateScore(id) {
   }
 
   const originalValue = input.value
+  const originalBgColor = input.style.backgroundColor
   input.disabled = true
+  input.style.backgroundColor = '#fef3c7' // 更新中の色
   
   try {
     await api.put(`/api/admin/evaluations/${id}`, { score: newScore })
-    alert('点数を更新しました')
+    input.style.backgroundColor = '#d1fae5' // 成功時の色
+    setTimeout(() => {
+      input.style.backgroundColor = originalBgColor
+    }, 1000)
   } catch (error) {
     alert(error.response?.data?.error || 'エラーが発生しました')
     input.value = originalValue
+    input.style.backgroundColor = originalBgColor
   } finally {
     input.disabled = false
   }
@@ -657,6 +709,10 @@ async function showUserDashboard() {
             class="px-6 py-3 font-semibold text-gray-500 hover:text-gray-700">
             <i class="fas fa-chart-bar mr-2"></i>集計結果
           </button>
+          <button onclick="showUserTab('monthly')" id="tab-monthly"
+            class="px-6 py-3 font-semibold text-gray-500 hover:text-gray-700">
+            <i class="fas fa-calendar-alt mr-2"></i>月次推移
+          </button>
         </div>
 
         <div id="user-content"></div>
@@ -676,6 +732,7 @@ function showUserTab(tab) {
   if (tab === 'evaluation') showEvaluationTab()
   if (tab === 'my-results') showMyResultsTab()
   if (tab === 'summary') showSummaryTab()
+  if (tab === 'monthly') showMonthlyTab()
 }
 
 async function showEvaluationTab() {
@@ -963,6 +1020,124 @@ async function showSummaryTab() {
             </p>
           ` : ''}
         </div>
+      </div>
+    `
+  } finally {
+    hideLoading()
+  }
+}
+
+async function showMonthlyTab() {
+  showLoading()
+  try {
+    const result = await api.get('/api/evaluations/monthly')
+    const { periods, monthlyData } = result
+    
+    if (!periods || periods.length === 0) {
+      document.getElementById('user-content').innerHTML = `
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-xl font-bold mb-4">
+            <i class="fas fa-calendar-alt mr-2"></i>月次推移
+          </h2>
+          <p class="text-gray-400 text-center py-8">
+            <i class="fas fa-info-circle mr-2"></i>まだ評価データがありません
+          </p>
+        </div>
+      `
+      return
+    }
+    
+    // データを整形
+    const memberMap = {}
+    monthlyData.forEach(data => {
+      if (!memberMap[data.member_id]) {
+        memberMap[data.member_id] = {
+          name: data.member_name,
+          items: {}
+        }
+      }
+      if (!memberMap[data.member_id].items[data.item_id]) {
+        memberMap[data.member_id].items[data.item_id] = {
+          name: data.item_name,
+          major: data.major_category,
+          minor: data.minor_category,
+          months: {}
+        }
+      }
+      memberMap[data.member_id].items[data.item_id].months[data.year_month] = parseFloat(data.avg_score).toFixed(1)
+    })
+    
+    const members = Object.values(memberMap)
+    
+    document.getElementById('user-content').innerHTML = `
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold mb-4">
+          <i class="fas fa-calendar-alt mr-2"></i>チーム${state.currentUser.team} 月次推移
+        </h2>
+        <p class="text-sm text-gray-600 mb-6">
+          <i class="fas fa-info-circle mr-2"></i>過去の評価結果と比較できます
+        </p>
+        
+        ${members.map(member => `
+          <div class="mb-8">
+            <h3 class="text-lg font-bold text-blue-600 mb-4">
+              <i class="fas fa-user mr-2"></i>${member.name}さんの推移
+            </h3>
+            
+            <div class="overflow-x-auto">
+              <table class="min-w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr>
+                    <th class="border border-gray-300 bg-gray-700 text-white px-4 py-3 text-left sticky left-0 z-10" rowspan="2">
+                      評価項目
+                    </th>
+                    ${periods.map(p => `
+                      <th class="border border-gray-300 bg-blue-700 text-white px-4 py-3 text-center min-w-[100px]">
+                        ${p.year_month}
+                      </th>
+                    `).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${Object.values(member.items).map(item => `
+                    <tr class="hover:bg-blue-50">
+                      <td class="border border-gray-300 bg-white px-4 py-3 sticky left-0 z-10">
+                        <div class="font-semibold text-sm text-blue-600">${item.major}</div>
+                        <div class="text-sm">${item.minor}</div>
+                      </td>
+                      ${periods.map(p => {
+                        const score = item.months[p.year_month] || '-'
+                        const prevPeriod = periods[periods.indexOf(p) + 1]
+                        const prevScore = prevPeriod ? item.months[prevPeriod.year_month] : null
+                        let trendIcon = ''
+                        let trendColor = ''
+                        
+                        if (score !== '-' && prevScore && prevScore !== '-') {
+                          const diff = parseFloat(score) - parseFloat(prevScore)
+                          if (diff > 0) {
+                            trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-2"></i>'
+                            trendColor = 'text-green-600'
+                          } else if (diff < 0) {
+                            trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-2"></i>'
+                            trendColor = 'text-red-600'
+                          } else {
+                            trendIcon = '<i class="fas fa-minus text-gray-400 ml-2"></i>'
+                          }
+                        }
+                        
+                        return `
+                          <td class="border border-gray-300 bg-white px-4 py-3 text-center">
+                            <span class="text-lg font-bold ${trendColor}">${score}</span>${trendIcon}
+                          </td>
+                        `
+                      }).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `).join('')}
       </div>
     `
   } finally {

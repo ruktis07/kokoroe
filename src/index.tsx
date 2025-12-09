@@ -263,12 +263,15 @@ app.post('/api/evaluations', requireAuth, async (c) => {
     return c.json({ error: '評価は1～10の範囲で入力してください' }, 400)
   }
 
+  // 現在の年月を取得（YYYY-MM形式）
+  const yearMonth = new Date().toISOString().slice(0, 7)
+
   await c.env.DB.prepare(`
-    INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, updated_at)
-    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(evaluator_id, evaluated_id, item_id) 
-    DO UPDATE SET score = ?, updated_at = CURRENT_TIMESTAMP
-  `).bind(currentUser.id, evaluated_id, item_id, score, score).run()
+    DO UPDATE SET score = ?, year_month = ?, updated_at = CURRENT_TIMESTAMP
+  `).bind(currentUser.id, evaluated_id, item_id, score, yearMonth, score, yearMonth).run()
 
   return c.json({ success: true })
 })
@@ -282,6 +285,9 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
     return c.json({ error: '評価データが不正です' }, 400)
   }
 
+  // 現在の年月を取得（YYYY-MM形式）
+  const yearMonth = new Date().toISOString().slice(0, 7)
+
   // トランザクション風に複数のINSERTを実行
   for (const evaluation of evaluations) {
     const { evaluated_id, item_id, score } = evaluation
@@ -290,11 +296,11 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
     if (score < 1 || score > 10) continue
 
     await c.env.DB.prepare(`
-      INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, updated_at)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, updated_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(evaluator_id, evaluated_id, item_id) 
-      DO UPDATE SET score = ?, updated_at = CURRENT_TIMESTAMP
-    `).bind(currentUser.id, evaluated_id, item_id, score, score).run()
+      DO UPDATE SET score = ?, year_month = ?, updated_at = CURRENT_TIMESTAMP
+    `).bind(currentUser.id, evaluated_id, item_id, score, yearMonth, score, yearMonth).run()
   }
 
   return c.json({ success: true, count: evaluations.length })
@@ -321,6 +327,42 @@ app.get('/api/evaluations/summary', requireAuth, async (c) => {
   `).bind(currentUser.team).all()
   
   return c.json({ summary: results })
+})
+
+// 月次集計結果取得（過去データ含む）
+app.get('/api/evaluations/monthly', requireAuth, async (c) => {
+  const currentUser = c.get('currentUser')
+  
+  // 利用可能な年月一覧を取得
+  const { results: periods } = await c.env.DB.prepare(`
+    SELECT DISTINCT year_month 
+    FROM evaluations e
+    JOIN members m ON e.evaluated_id = m.id
+    WHERE m.team = ? AND year_month IS NOT NULL
+    ORDER BY year_month DESC
+  `).bind(currentUser.team).all()
+  
+  // 各年月の集計データを取得
+  const { results: monthlyData } = await c.env.DB.prepare(`
+    SELECT 
+      e.year_month,
+      m.id as member_id,
+      m.name as member_name,
+      i.id as item_id,
+      i.name as item_name,
+      i.major_category,
+      i.minor_category,
+      AVG(e.score) as avg_score,
+      COUNT(e.score) as count
+    FROM members m
+    LEFT JOIN evaluations e ON m.id = e.evaluated_id
+    LEFT JOIN evaluation_items i ON e.item_id = i.id
+    WHERE m.team = ? AND m.role = 'user' AND e.year_month IS NOT NULL
+    GROUP BY e.year_month, m.id, m.name, i.id, i.name, i.major_category, i.minor_category
+    ORDER BY e.year_month DESC, m.name, i.display_order
+  `).bind(currentUser.team).all()
+  
+  return c.json({ periods, monthlyData })
 })
 
 // ==================== 管理者：採点調整API ====================
