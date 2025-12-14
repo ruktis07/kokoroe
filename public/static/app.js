@@ -955,70 +955,85 @@ async function showSummaryTab() {
   showLoading()
   try {
     const result = await api.get('/api/evaluations/summary')
-    const summary = result.summary
+    const summary = result.summary.filter(item => item.avg_score !== null)
 
-    const byMember = {}
-    summary.forEach(item => {
-      if (!byMember[item.name]) {
-        byMember[item.name] = { name: item.name, items: [], total: 0, count: 0 }
-      }
-      if (item.item_name) {
-        byMember[item.name].items.push({
-          name: item.item_name,
-          avg: parseFloat(item.avg_score).toFixed(1),
-          count: item.count
-        })
-        byMember[item.name].total += parseFloat(item.avg_score)
-        byMember[item.name].count++
-      }
-    })
+    if (summary.length === 0) {
+      document.getElementById('user-content').innerHTML = `
+        <div class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-xl font-bold mb-4">
+            <i class="fas fa-chart-bar mr-2"></i>あなたの評価結果
+          </h2>
+          <p class="text-gray-400 text-center py-8">
+            <i class="fas fa-info-circle mr-2"></i>まだ評価されていません
+          </p>
+        </div>
+      `
+      return
+    }
 
-    const members = Object.values(byMember).filter(m => m.count > 0)
-    members.forEach(m => {
-      m.average = (m.total / m.count).toFixed(1)
-    })
+    // 総合平均を計算
+    const totalAvg = (summary.reduce((sum, item) => sum + parseFloat(item.avg_score), 0) / summary.length).toFixed(1)
 
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-xl font-bold mb-4">
-          <i class="fas fa-chart-bar mr-2"></i>チーム${state.currentUser.team} 集計結果
+          <i class="fas fa-chart-bar mr-2"></i>あなたの評価結果
         </h2>
         <p class="text-sm text-gray-600 mb-6">
-          <i class="fas fa-info-circle mr-2"></i>チームメンバーの平均評価点
+          <i class="fas fa-info-circle mr-2"></i>チームメンバーからの評価の平均点
         </p>
         
-        <div class="space-y-6">
-          ${members.map(member => `
-            <div class="border rounded-lg p-6">
-              <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-blue-600">
-                  <i class="fas fa-user mr-2"></i>${member.name}さん
-                </h3>
-                <div class="text-right">
-                  <div class="text-sm text-gray-600">総合平均</div>
-                  <div class="text-2xl font-bold text-blue-600">${member.average}点</div>
+        <!-- 総合平均 -->
+        <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6 mb-6">
+          <div class="text-center">
+            <div class="text-sm font-semibold mb-2">総合平均</div>
+            <div class="text-5xl font-bold">${totalAvg}<span class="text-2xl">点</span></div>
+            <div class="text-sm mt-2 opacity-90">10点満点</div>
+          </div>
+        </div>
+        
+        <!-- 項目別グラフ -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-bold text-gray-700 mb-4">
+            <i class="fas fa-list mr-2"></i>項目別評価
+          </h3>
+          ${summary.map(item => {
+            const score = parseFloat(item.avg_score)
+            const percentage = (score / 10) * 100
+            const count = item.count || 0
+            
+            // 色を決定
+            let barColor = 'bg-blue-500'
+            if (score >= 8) barColor = 'bg-green-500'
+            else if (score >= 6) barColor = 'bg-blue-500'
+            else if (score >= 4) barColor = 'bg-yellow-500'
+            else barColor = 'bg-red-500'
+            
+            return `
+              <div class="border rounded-lg p-4 hover:shadow-md transition">
+                <div class="flex justify-between items-center mb-2">
+                  <div>
+                    <div class="font-bold text-gray-800">${item.major_category || ''}</div>
+                    <div class="text-sm text-gray-600">${item.minor_category || ''}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-2xl font-bold text-blue-600">${score.toFixed(1)}<span class="text-sm">点</span></div>
+                    <div class="text-xs text-gray-500">${count}件の評価</div>
+                  </div>
+                </div>
+                
+                <!-- プログレスバー -->
+                <div class="mt-3">
+                  <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div class="${barColor} h-4 rounded-full transition-all duration-500 flex items-center justify-end pr-2" 
+                      style="width: ${percentage}%">
+                      <span class="text-xs text-white font-bold">${percentage.toFixed(0)}%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                ${member.items.map(item => `
-                  <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <div>
-                      <div class="font-semibold">${item.name}</div>
-                      <div class="text-xs text-gray-500">${item.count}件の評価</div>
-                    </div>
-                    <span class="text-lg font-bold text-blue-600">${item.avg}点</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `).join('')}
-          
-          ${members.length === 0 ? `
-            <p class="text-gray-400 text-center py-8">
-              <i class="fas fa-info-circle mr-2"></i>まだ評価データがありません
-            </p>
-          ` : ''}
+            `
+          }).join('')}
         </div>
       </div>
     `
@@ -1037,7 +1052,7 @@ async function showMonthlyTab() {
       document.getElementById('user-content').innerHTML = `
         <div class="bg-white rounded-lg shadow p-6">
           <h2 class="text-xl font-bold mb-4">
-            <i class="fas fa-calendar-alt mr-2"></i>月次推移
+            <i class="fas fa-calendar-alt mr-2"></i>あなたの評価推移
           </h2>
           <p class="text-gray-400 text-center py-8">
             <i class="fas fa-info-circle mr-2"></i>まだ評価データがありません
@@ -1047,97 +1062,112 @@ async function showMonthlyTab() {
       return
     }
     
-    // データを整形
-    const memberMap = {}
+    // データを整形（項目別に月次データを集約）
+    const itemMap = {}
     monthlyData.forEach(data => {
-      if (!memberMap[data.member_id]) {
-        memberMap[data.member_id] = {
-          name: data.member_name,
-          items: {}
-        }
-      }
-      if (!memberMap[data.member_id].items[data.item_id]) {
-        memberMap[data.member_id].items[data.item_id] = {
+      if (!itemMap[data.item_id]) {
+        itemMap[data.item_id] = {
+          id: data.item_id,
           name: data.item_name,
           major: data.major_category,
           minor: data.minor_category,
           months: {}
         }
       }
-      memberMap[data.member_id].items[data.item_id].months[data.year_month] = parseFloat(data.avg_score).toFixed(1)
+      itemMap[data.item_id].months[data.year_month] = parseFloat(data.avg_score).toFixed(1)
     })
     
-    const members = Object.values(memberMap)
+    const items = Object.values(itemMap)
     
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-xl font-bold mb-4">
-          <i class="fas fa-calendar-alt mr-2"></i>チーム${state.currentUser.team} 月次推移
+          <i class="fas fa-calendar-alt mr-2"></i>あなたの評価推移
         </h2>
         <p class="text-sm text-gray-600 mb-6">
           <i class="fas fa-info-circle mr-2"></i>過去の評価結果と比較できます
         </p>
         
-        ${members.map(member => `
-          <div class="mb-8">
-            <h3 class="text-lg font-bold text-blue-600 mb-4">
-              <i class="fas fa-user mr-2"></i>${member.name}さんの推移
-            </h3>
-            
-            <div class="overflow-x-auto">
-              <table class="min-w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr>
-                    <th class="border border-gray-300 bg-gray-700 text-white px-4 py-3 text-left sticky left-0 z-10" rowspan="2">
-                      評価項目
-                    </th>
-                    ${periods.map(p => `
-                      <th class="border border-gray-300 bg-blue-700 text-white px-4 py-3 text-center min-w-[100px]">
-                        ${p.year_month}
-                      </th>
-                    `).join('')}
-                  </tr>
-                </thead>
-                <tbody>
-                  ${Object.values(member.items).map(item => `
-                    <tr class="hover:bg-blue-50">
-                      <td class="border border-gray-300 bg-white px-4 py-3 sticky left-0 z-10">
-                        <div class="font-semibold text-sm text-blue-600">${item.major}</div>
-                        <div class="text-sm">${item.minor}</div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full border-collapse border border-gray-300">
+            <thead>
+              <tr>
+                <th class="border border-gray-300 bg-gray-700 text-white px-4 py-3 text-left sticky left-0 z-10" style="min-width: 150px;">
+                  評価項目
+                </th>
+                ${periods.map(p => `
+                  <th class="border border-gray-300 bg-blue-700 text-white px-4 py-3 text-center min-w-[120px]">
+                    ${p.year_month}
+                  </th>
+                `).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => `
+                <tr class="hover:bg-blue-50">
+                  <td class="border border-gray-300 bg-white px-4 py-3 sticky left-0 z-10">
+                    <div class="font-semibold text-sm text-blue-600">${item.major}</div>
+                    <div class="text-sm text-gray-600">${item.minor}</div>
+                  </td>
+                  ${periods.map(p => {
+                    const score = item.months[p.year_month] || '-'
+                    const prevPeriod = periods[periods.indexOf(p) + 1]
+                    const prevScore = prevPeriod ? item.months[prevPeriod.year_month] : null
+                    let trendIcon = ''
+                    let trendColor = 'text-gray-800'
+                    
+                    if (score !== '-' && prevScore && prevScore !== '-') {
+                      const diff = parseFloat(score) - parseFloat(prevScore)
+                      if (diff > 0) {
+                        trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-2"></i>'
+                        trendColor = 'text-green-600'
+                      } else if (diff < 0) {
+                        trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-2"></i>'
+                        trendColor = 'text-red-600'
+                      } else {
+                        trendIcon = '<i class="fas fa-minus text-gray-400 ml-2"></i>'
+                      }
+                    }
+                    
+                    return `
+                      <td class="border border-gray-300 bg-white px-4 py-3 text-center">
+                        <span class="text-lg font-bold ${trendColor}">${score}${score !== '-' ? '点' : ''}</span>${trendIcon}
                       </td>
-                      ${periods.map(p => {
-                        const score = item.months[p.year_month] || '-'
-                        const prevPeriod = periods[periods.indexOf(p) + 1]
-                        const prevScore = prevPeriod ? item.months[prevPeriod.year_month] : null
-                        let trendIcon = ''
-                        let trendColor = ''
-                        
-                        if (score !== '-' && prevScore && prevScore !== '-') {
-                          const diff = parseFloat(score) - parseFloat(prevScore)
-                          if (diff > 0) {
-                            trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-2"></i>'
-                            trendColor = 'text-green-600'
-                          } else if (diff < 0) {
-                            trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-2"></i>'
-                            trendColor = 'text-red-600'
-                          } else {
-                            trendIcon = '<i class="fas fa-minus text-gray-400 ml-2"></i>'
-                          }
-                        }
-                        
-                        return `
-                          <td class="border border-gray-300 bg-white px-4 py-3 text-center">
-                            <span class="text-lg font-bold ${trendColor}">${score}</span>${trendIcon}
-                          </td>
-                        `
-                      }).join('')}
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
+                    `
+                  }).join('')}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 総合平均の推移グラフ（簡易版） -->
+        <div class="mt-8">
+          <h3 class="text-lg font-bold text-gray-700 mb-4">
+            <i class="fas fa-chart-line mr-2"></i>総合平均の推移
+          </h3>
+          <div class="bg-gray-50 rounded-lg p-6">
+            ${periods.map(p => {
+              const periodItems = items.filter(item => item.months[p.year_month])
+              if (periodItems.length === 0) return ''
+              
+              const periodAvg = (periodItems.reduce((sum, item) => sum + parseFloat(item.months[p.year_month]), 0) / periodItems.length).toFixed(1)
+              const percentage = (parseFloat(periodAvg) / 10) * 100
+              
+              return `
+                <div class="mb-4">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="font-semibold text-gray-700">${p.year_month}</span>
+                    <span class="text-xl font-bold text-blue-600">${periodAvg}点</span>
+                  </div>
+                  <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-blue-500 h-3 rounded-full transition-all" style="width: ${percentage}%"></div>
+                  </div>
+                </div>
+              `
+            }).join('')}
           </div>
-        `).join('')}
+        </div>
       </div>
     `
   } finally {

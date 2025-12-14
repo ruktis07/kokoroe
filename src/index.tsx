@@ -306,61 +306,55 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
   return c.json({ success: true, count: evaluations.length })
 })
 
-// 集計結果取得（チーム別）
+// 集計結果取得（自分が評価された結果のみ）
 app.get('/api/evaluations/summary', requireAuth, async (c) => {
   const currentUser = c.get('currentUser')
   
   const { results } = await c.env.DB.prepare(`
     SELECT 
-      m.id,
-      m.name,
-      i.id as item_id,
-      i.name as item_name,
-      AVG(e.score) as avg_score,
-      COUNT(e.score) as count
-    FROM members m
-    LEFT JOIN evaluations e ON m.id = e.evaluated_id
-    LEFT JOIN evaluation_items i ON e.item_id = i.id
-    WHERE m.team = ? AND m.role = 'user'
-    GROUP BY m.id, m.name, i.id, i.name
-    ORDER BY m.name, i.display_order
-  `).bind(currentUser.team).all()
-  
-  return c.json({ summary: results })
-})
-
-// 月次集計結果取得（過去データ含む）
-app.get('/api/evaluations/monthly', requireAuth, async (c) => {
-  const currentUser = c.get('currentUser')
-  
-  // 利用可能な年月一覧を取得
-  const { results: periods } = await c.env.DB.prepare(`
-    SELECT DISTINCT year_month 
-    FROM evaluations e
-    JOIN members m ON e.evaluated_id = m.id
-    WHERE m.team = ? AND year_month IS NOT NULL
-    ORDER BY year_month DESC
-  `).bind(currentUser.team).all()
-  
-  // 各年月の集計データを取得
-  const { results: monthlyData } = await c.env.DB.prepare(`
-    SELECT 
-      e.year_month,
-      m.id as member_id,
-      m.name as member_name,
       i.id as item_id,
       i.name as item_name,
       i.major_category,
       i.minor_category,
       AVG(e.score) as avg_score,
       COUNT(e.score) as count
-    FROM members m
-    LEFT JOIN evaluations e ON m.id = e.evaluated_id
-    LEFT JOIN evaluation_items i ON e.item_id = i.id
-    WHERE m.team = ? AND m.role = 'user' AND e.year_month IS NOT NULL
-    GROUP BY e.year_month, m.id, m.name, i.id, i.name, i.major_category, i.minor_category
-    ORDER BY e.year_month DESC, m.name, i.display_order
-  `).bind(currentUser.team).all()
+    FROM evaluation_items i
+    LEFT JOIN evaluations e ON i.id = e.item_id AND e.evaluated_id = ?
+    GROUP BY i.id, i.name, i.major_category, i.minor_category
+    ORDER BY i.display_order
+  `).bind(currentUser.id).all()
+  
+  return c.json({ summary: results })
+})
+
+// 月次集計結果取得（自分が評価された結果のみ）
+app.get('/api/evaluations/monthly', requireAuth, async (c) => {
+  const currentUser = c.get('currentUser')
+  
+  // 利用可能な年月一覧を取得（自分が評価された月）
+  const { results: periods } = await c.env.DB.prepare(`
+    SELECT DISTINCT year_month 
+    FROM evaluations
+    WHERE evaluated_id = ? AND year_month IS NOT NULL
+    ORDER BY year_month DESC
+  `).bind(currentUser.id).all()
+  
+  // 各年月の集計データを取得（自分が評価された結果のみ）
+  const { results: monthlyData } = await c.env.DB.prepare(`
+    SELECT 
+      e.year_month,
+      i.id as item_id,
+      i.name as item_name,
+      i.major_category,
+      i.minor_category,
+      AVG(e.score) as avg_score,
+      COUNT(e.score) as count
+    FROM evaluation_items i
+    LEFT JOIN evaluations e ON i.id = e.item_id AND e.evaluated_id = ? AND e.year_month IS NOT NULL
+    WHERE e.year_month IS NOT NULL
+    GROUP BY e.year_month, i.id, i.name, i.major_category, i.minor_category
+    ORDER BY e.year_month DESC, i.display_order
+  `).bind(currentUser.id).all()
   
   return c.json({ periods, monthlyData })
 })
