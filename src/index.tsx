@@ -408,6 +408,7 @@ app.get('/', (c) => {
         <title>心得入力 - チーム評価システム</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body class="bg-gray-50">
         <div id="app"></div>

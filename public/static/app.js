@@ -992,51 +992,126 @@ async function showSummaryTab() {
           </div>
         </div>
         
-        <!-- 項目別グラフ -->
-        <div class="space-y-4">
+        <!-- 折れ線グラフ -->
+        <div class="mb-6">
           <h3 class="text-lg font-bold text-gray-700 mb-4">
-            <i class="fas fa-list mr-2"></i>項目別評価
+            <i class="fas fa-chart-line mr-2"></i>項目別評価（グラフ）
           </h3>
-          ${summary.map(item => {
-            const score = parseFloat(item.avg_score)
-            const percentage = (score / 10) * 100
-            const count = item.count || 0
-            
-            // 色を決定
-            let barColor = 'bg-blue-500'
-            if (score >= 8) barColor = 'bg-green-500'
-            else if (score >= 6) barColor = 'bg-blue-500'
-            else if (score >= 4) barColor = 'bg-yellow-500'
-            else barColor = 'bg-red-500'
-            
-            return `
-              <div class="border rounded-lg p-4 hover:shadow-md transition">
-                <div class="flex justify-between items-center mb-2">
-                  <div>
-                    <div class="font-bold text-gray-800">${item.major_category || ''}</div>
-                    <div class="text-sm text-gray-600">${item.minor_category || ''}</div>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-2xl font-bold text-blue-600">${score.toFixed(1)}<span class="text-sm">点</span></div>
-                    <div class="text-xs text-gray-500">${count}件の評価</div>
-                  </div>
-                </div>
-                
-                <!-- プログレスバー -->
-                <div class="mt-3">
-                  <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                    <div class="${barColor} h-4 rounded-full transition-all duration-500 flex items-center justify-end pr-2" 
-                      style="width: ${percentage}%">
-                      <span class="text-xs text-white font-bold">${percentage.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            `
-          }).join('')}
+          <div class="bg-white border rounded-lg p-4" style="height: 400px;">
+            <canvas id="summaryChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- 評価表 -->
+        <div>
+          <h3 class="text-lg font-bold text-gray-700 mb-4">
+            <i class="fas fa-table mr-2"></i>項目別評価（詳細）
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse border border-gray-300">
+              <thead>
+                <tr class="bg-gray-700 text-white">
+                  <th class="border border-gray-300 px-4 py-3 text-left">大項目</th>
+                  <th class="border border-gray-300 px-4 py-3 text-left">中項目</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">平均点</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">評価件数</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">達成率</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${summary.map(item => {
+                  const score = parseFloat(item.avg_score)
+                  const percentage = (score / 10) * 100
+                  const count = item.count || 0
+                  
+                  let scoreColor = 'text-blue-600'
+                  if (score >= 8) scoreColor = 'text-green-600'
+                  else if (score >= 6) scoreColor = 'text-blue-600'
+                  else if (score >= 4) scoreColor = 'text-yellow-600'
+                  else scoreColor = 'text-red-600'
+                  
+                  return `
+                    <tr class="hover:bg-blue-50">
+                      <td class="border border-gray-300 px-4 py-3 font-semibold">${item.major_category || ''}</td>
+                      <td class="border border-gray-300 px-4 py-3">${item.minor_category || ''}</td>
+                      <td class="border border-gray-300 px-4 py-3 text-center">
+                        <span class="text-2xl font-bold ${scoreColor}">${score.toFixed(1)}</span>
+                        <span class="text-sm text-gray-600">点</span>
+                      </td>
+                      <td class="border border-gray-300 px-4 py-3 text-center text-gray-600">${count}件</td>
+                      <td class="border border-gray-300 px-4 py-3 text-center">
+                        <span class="font-bold ${scoreColor}">${percentage.toFixed(0)}%</span>
+                      </td>
+                    </tr>
+                  `
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `
+    
+    // Chart.jsで折れ線グラフを描画
+    const ctx = document.getElementById('summaryChart')
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: summary.map(item => `${item.major_category}\n${item.minor_category}`),
+          datasets: [{
+            label: '平均評価点',
+            data: summary.map(item => parseFloat(item.avg_score)),
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return '評価点: ' + context.parsed.y.toFixed(1) + '点'
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 10,
+              ticks: {
+                stepSize: 1
+              },
+              title: {
+                display: true,
+                text: '評価点（10点満点）'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: '評価項目'
+              }
+            }
+          }
+        }
+      })
+    }
   } finally {
     hideLoading()
   }
@@ -1079,6 +1154,13 @@ async function showMonthlyTab() {
     
     const items = Object.values(itemMap)
     
+    // 総合平均データを計算
+    const avgData = periods.map(p => {
+      const periodItems = items.filter(item => item.months[p.year_month])
+      if (periodItems.length === 0) return null
+      return (periodItems.reduce((sum, item) => sum + parseFloat(item.months[p.year_month]), 0) / periodItems.length)
+    })
+    
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-xl font-bold mb-4">
@@ -1088,88 +1170,214 @@ async function showMonthlyTab() {
           <i class="fas fa-info-circle mr-2"></i>過去の評価結果と比較できます
         </p>
         
-        <div class="overflow-x-auto">
-          <table class="min-w-full border-collapse border border-gray-300">
-            <thead>
-              <tr>
-                <th class="border border-gray-300 bg-gray-700 text-white px-4 py-3 text-left sticky left-0 z-10" style="min-width: 150px;">
-                  評価項目
-                </th>
-                ${periods.map(p => `
-                  <th class="border border-gray-300 bg-blue-700 text-white px-4 py-3 text-center min-w-[120px]">
-                    ${p.year_month}
-                  </th>
-                `).join('')}
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map(item => `
-                <tr class="hover:bg-blue-50">
-                  <td class="border border-gray-300 bg-white px-4 py-3 sticky left-0 z-10">
-                    <div class="font-semibold text-sm text-blue-600">${item.major}</div>
-                    <div class="text-sm text-gray-600">${item.minor}</div>
-                  </td>
-                  ${periods.map(p => {
-                    const score = item.months[p.year_month] || '-'
-                    const prevPeriod = periods[periods.indexOf(p) + 1]
-                    const prevScore = prevPeriod ? item.months[prevPeriod.year_month] : null
-                    let trendIcon = ''
-                    let trendColor = 'text-gray-800'
-                    
-                    if (score !== '-' && prevScore && prevScore !== '-') {
-                      const diff = parseFloat(score) - parseFloat(prevScore)
-                      if (diff > 0) {
-                        trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-2"></i>'
-                        trendColor = 'text-green-600'
-                      } else if (diff < 0) {
-                        trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-2"></i>'
-                        trendColor = 'text-red-600'
-                      } else {
-                        trendIcon = '<i class="fas fa-minus text-gray-400 ml-2"></i>'
-                      }
-                    }
-                    
-                    return `
-                      <td class="border border-gray-300 bg-white px-4 py-3 text-center">
-                        <span class="text-lg font-bold ${trendColor}">${score}${score !== '-' ? '点' : ''}</span>${trendIcon}
-                      </td>
-                    `
-                  }).join('')}
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+        <!-- 総合平均の折れ線グラフ -->
+        <div class="mb-6">
+          <h3 class="text-lg font-bold text-gray-700 mb-4">
+            <i class="fas fa-chart-line mr-2"></i>総合平均の推移（グラフ）
+          </h3>
+          <div class="bg-white border rounded-lg p-4" style="height: 300px;">
+            <canvas id="monthlyAvgChart"></canvas>
+          </div>
         </div>
         
-        <!-- 総合平均の推移グラフ（簡易版） -->
-        <div class="mt-8">
+        <!-- 項目別推移の折れ線グラフ -->
+        <div class="mb-6">
           <h3 class="text-lg font-bold text-gray-700 mb-4">
-            <i class="fas fa-chart-line mr-2"></i>総合平均の推移
+            <i class="fas fa-chart-line mr-2"></i>項目別評価の推移（グラフ）
           </h3>
-          <div class="bg-gray-50 rounded-lg p-6">
-            ${periods.map(p => {
-              const periodItems = items.filter(item => item.months[p.year_month])
-              if (periodItems.length === 0) return ''
-              
-              const periodAvg = (periodItems.reduce((sum, item) => sum + parseFloat(item.months[p.year_month]), 0) / periodItems.length).toFixed(1)
-              const percentage = (parseFloat(periodAvg) / 10) * 100
-              
-              return `
-                <div class="mb-4">
-                  <div class="flex justify-between items-center mb-2">
-                    <span class="font-semibold text-gray-700">${p.year_month}</span>
-                    <span class="text-xl font-bold text-blue-600">${periodAvg}点</span>
-                  </div>
-                  <div class="w-full bg-gray-200 rounded-full h-3">
-                    <div class="bg-blue-500 h-3 rounded-full transition-all" style="width: ${percentage}%"></div>
-                  </div>
-                </div>
-              `
-            }).join('')}
+          <div class="bg-white border rounded-lg p-4" style="height: 400px;">
+            <canvas id="monthlyItemsChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- 詳細データ表 -->
+        <div>
+          <h3 class="text-lg font-bold text-gray-700 mb-4">
+            <i class="fas fa-table mr-2"></i>項目別評価の推移（詳細）
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse border border-gray-300">
+              <thead>
+                <tr>
+                  <th class="border border-gray-300 bg-gray-700 text-white px-4 py-3 text-left sticky left-0 z-10" style="min-width: 150px;">
+                    評価項目
+                  </th>
+                  ${periods.map(p => `
+                    <th class="border border-gray-300 bg-blue-700 text-white px-4 py-3 text-center min-w-[120px]">
+                      ${p.year_month}
+                    </th>
+                  `).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(item => `
+                  <tr class="hover:bg-blue-50">
+                    <td class="border border-gray-300 bg-white px-4 py-3 sticky left-0 z-10">
+                      <div class="font-semibold text-sm text-blue-600">${item.major}</div>
+                      <div class="text-sm text-gray-600">${item.minor}</div>
+                    </td>
+                    ${periods.map(p => {
+                      const score = item.months[p.year_month] || '-'
+                      const prevPeriod = periods[periods.indexOf(p) + 1]
+                      const prevScore = prevPeriod ? item.months[prevPeriod.year_month] : null
+                      let trendIcon = ''
+                      let trendColor = 'text-gray-800'
+                      
+                      if (score !== '-' && prevScore && prevScore !== '-') {
+                        const diff = parseFloat(score) - parseFloat(prevScore)
+                        if (diff > 0) {
+                          trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-2"></i>'
+                          trendColor = 'text-green-600'
+                        } else if (diff < 0) {
+                          trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-2"></i>'
+                          trendColor = 'text-red-600'
+                        } else {
+                          trendIcon = '<i class="fas fa-minus text-gray-400 ml-2"></i>'
+                        }
+                      }
+                      
+                      return `
+                        <td class="border border-gray-300 bg-white px-4 py-3 text-center">
+                          <span class="text-lg font-bold ${trendColor}">${score}${score !== '-' ? '点' : ''}</span>${trendIcon}
+                        </td>
+                      `
+                    }).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
     `
+    
+    // 総合平均の折れ線グラフ
+    const avgCtx = document.getElementById('monthlyAvgChart')
+    if (avgCtx) {
+      new Chart(avgCtx, {
+        type: 'line',
+        data: {
+          labels: periods.map(p => p.year_month).reverse(),
+          datasets: [{
+            label: '総合平均',
+            data: avgData.reverse(),
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return '総合平均: ' + context.parsed.y.toFixed(1) + '点'
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 10,
+              ticks: {
+                stepSize: 1
+              },
+              title: {
+                display: true,
+                text: '評価点（10点満点）'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: '年月'
+              }
+            }
+          }
+        }
+      })
+    }
+    
+    // 項目別の折れ線グラフ
+    const itemsCtx = document.getElementById('monthlyItemsChart')
+    if (itemsCtx) {
+      const colors = [
+        'rgb(59, 130, 246)',   // blue
+        'rgb(16, 185, 129)',   // green
+        'rgb(245, 158, 11)',   // yellow
+        'rgb(239, 68, 68)',    // red
+        'rgb(139, 92, 246)',   // purple
+        'rgb(236, 72, 153)',   // pink
+        'rgb(20, 184, 166)',   // teal
+      ]
+      
+      new Chart(itemsCtx, {
+        type: 'line',
+        data: {
+          labels: periods.map(p => p.year_month).reverse(),
+          datasets: items.map((item, index) => ({
+            label: `${item.major} - ${item.minor}`,
+            data: periods.map(p => item.months[p.year_month] ? parseFloat(item.months[p.year_month]) : null).reverse(),
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3
+          }))
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '点'
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 10,
+              ticks: {
+                stepSize: 1
+              },
+              title: {
+                display: true,
+                text: '評価点（10点満点）'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: '年月'
+              }
+            }
+          }
+        }
+      })
+    }
   } finally {
     hideLoading()
   }
