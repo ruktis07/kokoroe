@@ -306,25 +306,76 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
   return c.json({ success: true, count: evaluations.length })
 })
 
-// 集計結果取得（自分が評価された結果のみ）
+// 集計結果取得（自分が評価された結果 + チーム内平均・順位）
 app.get('/api/evaluations/summary', requireAuth, async (c) => {
   const currentUser = c.get('currentUser')
   
-  const { results } = await c.env.DB.prepare(`
+  // 自分の評価結果を取得
+  const { results: myScores } = await c.env.DB.prepare(`
     SELECT 
       i.id as item_id,
       i.name as item_name,
       i.major_category,
       i.minor_category,
-      AVG(e.score) as avg_score,
+      i.display_order,
+      AVG(e.score) as my_avg_score,
       COUNT(e.score) as count
     FROM evaluation_items i
     LEFT JOIN evaluations e ON i.id = e.item_id AND e.evaluated_id = ?
-    GROUP BY i.id, i.name, i.major_category, i.minor_category
+    GROUP BY i.id, i.name, i.major_category, i.minor_category, i.display_order
     ORDER BY i.display_order
   `).bind(currentUser.id).all()
   
-  return c.json({ summary: results })
+  // チーム内全員の評価平均を取得
+  const { results: teamScores } = await c.env.DB.prepare(`
+    SELECT 
+      m.id as member_id,
+      m.name as member_name,
+      i.id as item_id,
+      AVG(e.score) as avg_score
+    FROM members m
+    JOIN evaluations e ON m.id = e.evaluated_id
+    JOIN evaluation_items i ON e.item_id = i.id
+    WHERE m.team = ? AND m.role = 'user'
+    GROUP BY m.id, m.name, i.id
+  `).bind(currentUser.team).all()
+  
+  // チーム内平均と順位を計算
+  const summary = myScores.map(item => {
+    // この項目のチーム内全員のスコアを取得
+    const itemTeamScores = teamScores
+      .filter(ts => ts.item_id === item.item_id)
+      .map(ts => ({
+        member_id: ts.member_id,
+        avg_score: parseFloat(ts.avg_score)
+      }))
+    
+    // チーム内平均を計算
+    const team_avg = itemTeamScores.length > 0
+      ? itemTeamScores.reduce((sum, ts) => sum + ts.avg_score, 0) / itemTeamScores.length
+      : null
+    
+    // 自分の順位を計算（降順：高いスコアが上位）
+    let rank = null
+    if (item.my_avg_score !== null) {
+      const myScore = parseFloat(item.my_avg_score)
+      rank = itemTeamScores.filter(ts => ts.avg_score > myScore).length + 1
+    }
+    
+    return {
+      item_id: item.item_id,
+      item_name: item.item_name,
+      major_category: item.major_category,
+      minor_category: item.minor_category,
+      my_avg_score: item.my_avg_score,
+      count: item.count,
+      team_avg: team_avg,
+      rank: rank,
+      team_total: itemTeamScores.length
+    }
+  })
+  
+  return c.json({ summary })
 })
 
 // 月次集計結果取得（自分が評価された結果のみ）

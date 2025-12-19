@@ -955,7 +955,7 @@ async function showSummaryTab() {
   showLoading()
   try {
     const result = await api.get('/api/evaluations/summary')
-    const summary = result.summary.filter(item => item.avg_score !== null)
+    const summary = result.summary.filter(item => item.my_avg_score !== null)
 
     if (summary.length === 0) {
       document.getElementById('user-content').innerHTML = `
@@ -971,8 +971,9 @@ async function showSummaryTab() {
       return
     }
 
-    // 総合平均を計算
-    const totalAvg = (summary.reduce((sum, item) => sum + parseFloat(item.avg_score), 0) / summary.length).toFixed(1)
+    // 自分の総合平均とチーム内総合平均を計算
+    const myTotalAvg = (summary.reduce((sum, item) => sum + parseFloat(item.my_avg_score), 0) / summary.length).toFixed(1)
+    const teamTotalAvg = (summary.reduce((sum, item) => sum + (item.team_avg || 0), 0) / summary.length).toFixed(1)
 
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
@@ -984,11 +985,20 @@ async function showSummaryTab() {
         </p>
         
         <!-- 総合平均 -->
-        <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6 mb-6">
-          <div class="text-center">
-            <div class="text-sm font-semibold mb-2">総合平均</div>
-            <div class="text-5xl font-bold">${totalAvg}<span class="text-2xl">点</span></div>
-            <div class="text-sm mt-2 opacity-90">10点満点</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+            <div class="text-center">
+              <div class="text-sm font-semibold mb-2">あなたの総合平均</div>
+              <div class="text-5xl font-bold">${myTotalAvg}<span class="text-2xl">点</span></div>
+              <div class="text-sm mt-2 opacity-90">10点満点</div>
+            </div>
+          </div>
+          <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+            <div class="text-center">
+              <div class="text-sm font-semibold mb-2">チーム内平均</div>
+              <div class="text-5xl font-bold">${teamTotalAvg}<span class="text-2xl">点</span></div>
+              <div class="text-sm mt-2 opacity-90">10点満点</div>
+            </div>
           </div>
         </div>
         
@@ -1013,34 +1023,46 @@ async function showSummaryTab() {
                 <tr class="bg-gray-700 text-white">
                   <th class="border border-gray-300 px-4 py-3 text-left">大項目</th>
                   <th class="border border-gray-300 px-4 py-3 text-left">中項目</th>
-                  <th class="border border-gray-300 px-4 py-3 text-center">平均点</th>
-                  <th class="border border-gray-300 px-4 py-3 text-center">評価件数</th>
-                  <th class="border border-gray-300 px-4 py-3 text-center">達成率</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">チーム内平均</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">あなたの平均点</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">チーム内順位</th>
                 </tr>
               </thead>
               <tbody>
                 ${summary.map(item => {
-                  const score = parseFloat(item.avg_score)
-                  const percentage = (score / 10) * 100
-                  const count = item.count || 0
+                  const myScore = parseFloat(item.my_avg_score)
+                  const teamAvg = item.team_avg ? parseFloat(item.team_avg) : 0
+                  const rank = item.rank || '-'
+                  const teamTotal = item.team_total || 0
                   
-                  let scoreColor = 'text-blue-600'
-                  if (score >= 8) scoreColor = 'text-green-600'
-                  else if (score >= 6) scoreColor = 'text-blue-600'
-                  else if (score >= 4) scoreColor = 'text-yellow-600'
-                  else scoreColor = 'text-red-600'
+                  let myScoreColor = 'text-blue-600'
+                  if (myScore >= 8) myScoreColor = 'text-green-600'
+                  else if (myScore >= 6) myScoreColor = 'text-blue-600'
+                  else if (myScore >= 4) myScoreColor = 'text-yellow-600'
+                  else myScoreColor = 'text-red-600'
+                  
+                  let rankColor = 'text-gray-600'
+                  if (rank !== '-') {
+                    if (rank <= teamTotal * 0.3) rankColor = 'text-green-600'
+                    else if (rank <= teamTotal * 0.7) rankColor = 'text-blue-600'
+                    else rankColor = 'text-orange-600'
+                  }
                   
                   return `
                     <tr class="hover:bg-blue-50">
                       <td class="border border-gray-300 px-4 py-3 font-semibold">${item.major_category || ''}</td>
                       <td class="border border-gray-300 px-4 py-3">${item.minor_category || ''}</td>
                       <td class="border border-gray-300 px-4 py-3 text-center">
-                        <span class="text-2xl font-bold ${scoreColor}">${score.toFixed(1)}</span>
+                        <span class="text-lg font-bold text-gray-700">${teamAvg.toFixed(1)}</span>
                         <span class="text-sm text-gray-600">点</span>
                       </td>
-                      <td class="border border-gray-300 px-4 py-3 text-center text-gray-600">${count}件</td>
                       <td class="border border-gray-300 px-4 py-3 text-center">
-                        <span class="font-bold ${scoreColor}">${percentage.toFixed(0)}%</span>
+                        <span class="text-2xl font-bold ${myScoreColor}">${myScore.toFixed(1)}</span>
+                        <span class="text-sm text-gray-600">点</span>
+                      </td>
+                      <td class="border border-gray-300 px-4 py-3 text-center">
+                        <span class="text-xl font-bold ${rankColor}">${rank !== '-' ? rank + '位' : '-'}</span>
+                        ${rank !== '-' ? `<span class="text-xs text-gray-500 block">/${teamTotal}人</span>` : ''}
                       </td>
                     </tr>
                   `
@@ -1052,27 +1074,44 @@ async function showSummaryTab() {
       </div>
     `
     
-    // Chart.jsで折れ線グラフを描画
+    // Chart.jsで折れ線グラフを描画（自分の点数 vs チーム平均）
     const ctx = document.getElementById('summaryChart')
     if (ctx) {
       new Chart(ctx, {
         type: 'line',
         data: {
-          labels: summary.map(item => `${item.major_category}\n${item.minor_category}`),
-          datasets: [{
-            label: '平均評価点',
-            data: summary.map(item => parseFloat(item.avg_score)),
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            borderWidth: 3,
-            pointBackgroundColor: 'rgb(59, 130, 246)',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 8,
-            tension: 0.3,
-            fill: true
-          }]
+          labels: summary.map(item => `${item.major_category || ''}\n${item.minor_category || ''}`),
+          datasets: [
+            {
+              label: 'あなたの評価点',
+              data: summary.map(item => parseFloat(item.my_avg_score)),
+              borderColor: 'rgb(59, 130, 246)',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              borderWidth: 3,
+              pointBackgroundColor: 'rgb(59, 130, 246)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              tension: 0.3,
+              fill: true
+            },
+            {
+              label: 'チーム内平均',
+              data: summary.map(item => item.team_avg ? parseFloat(item.team_avg) : null),
+              borderColor: 'rgb(34, 197, 94)',
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              borderWidth: 2,
+              pointBackgroundColor: 'rgb(34, 197, 94)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              tension: 0.3,
+              fill: false,
+              borderDash: [5, 5]
+            }
+          ]
         },
         options: {
           responsive: true,
@@ -1085,7 +1124,7 @@ async function showSummaryTab() {
             tooltip: {
               callbacks: {
                 label: function(context) {
-                  return '評価点: ' + context.parsed.y.toFixed(1) + '点'
+                  return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '点'
                 }
               }
             }
