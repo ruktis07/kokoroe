@@ -225,6 +225,9 @@ app.delete('/api/items/:id', requireAdmin, async (c) => {
 app.get('/api/evaluations/my', requireAuth, async (c) => {
   const currentUser = c.get('currentUser')
   
+  // 当月のみの評価データを取得
+  const yearMonth = new Date().toISOString().slice(0, 7)
+  
   const { results } = await c.env.DB.prepare(`
     SELECT e.*, 
            m.name as evaluated_name,
@@ -232,11 +235,29 @@ app.get('/api/evaluations/my', requireAuth, async (c) => {
     FROM evaluations e
     JOIN members m ON e.evaluated_id = m.id
     JOIN evaluation_items i ON e.item_id = i.id
-    WHERE e.evaluator_id = ?
+    WHERE e.evaluator_id = ? AND e.year_month = ?
     ORDER BY m.name, i.display_order
-  `).bind(currentUser.id).all()
+  `).bind(currentUser.id, yearMonth).all()
   
   return c.json({ evaluations: results })
+})
+
+// 前回評価取得（採点フォーム用）
+app.get('/api/evaluations/previous', requireAuth, async (c) => {
+  const currentUser = c.get('currentUser')
+  
+  // 前月の年月を計算
+  const now = new Date()
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const previousYearMonth = previousMonth.toISOString().slice(0, 7)
+  
+  const { results } = await c.env.DB.prepare(`
+    SELECT e.evaluated_id, e.item_id, e.score
+    FROM evaluations e
+    WHERE e.evaluator_id = ? AND e.year_month = ?
+  `).bind(currentUser.id, previousYearMonth).all()
+  
+  return c.json({ previousEvaluations: results })
 })
 
 // チームメンバー取得（自己評価含む）

@@ -741,12 +741,22 @@ async function showEvaluationTab() {
     const result = await api.get('/api/team-members')
     state.teamMembers = result.members
 
+    // 当月の評価データ
     const myEvals = await api.get('/api/evaluations/my')
     const evalMap = {}
     myEvals.evaluations.forEach(ev => {
       const key = `${ev.evaluated_id}_${ev.item_id}`
       evalMap[key] = ev.score
     })
+
+    // 前月の評価データ
+    const previousEvals = await api.get('/api/evaluations/previous')
+    const previousMap = {}
+    previousEvals.previousEvaluations.forEach(ev => {
+      const key = `${ev.evaluated_id}_${ev.item_id}`
+      previousMap[key] = ev.score
+    })
+    state.previousEvaluations = previousMap
 
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
@@ -759,12 +769,20 @@ async function showEvaluationTab() {
               <i class="fas fa-info-circle mr-2"></i>各項目を1～10点で評価してください（1:低い、10:高い）
             </p>
           </div>
-          ${state.teamMembers.length > 0 ? `
-            <button onclick="saveAllEvaluations()" id="save-all-btn"
-              class="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg">
-              <i class="fas fa-save mr-2"></i>全て保存
-            </button>
-          ` : ''}
+          <div class="flex gap-3">
+            ${Object.keys(previousMap).length > 0 ? `
+              <button onclick="applyPreviousScores()" id="apply-previous-btn"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 py-3 rounded-lg">
+                <i class="fas fa-history mr-2"></i>前回結果を反映
+              </button>
+            ` : ''}
+            ${state.teamMembers.length > 0 ? `
+              <button onclick="saveAllEvaluations()" id="save-all-btn"
+                class="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-3 rounded-lg">
+                <i class="fas fa-save mr-2"></i>全て保存
+              </button>
+            ` : ''}
+          </div>
         </div>
         
         ${state.teamMembers.length > 0 ? `
@@ -799,23 +817,42 @@ async function showEvaluationTab() {
                     <td class="border border-gray-300 bg-white px-4 py-3 font-semibold text-gray-800 sticky left-0 z-10">
                       ${member.name}
                     </td>
-                    ${state.items.map(item => `
-                      <td class="border border-gray-300 bg-white px-2 py-2 text-center">
-                        <input type="number" min="1" max="10" 
-                          value="${evalMap[`${member.id}_${item.id}`] || ''}"
-                          placeholder="-"
-                          data-member="${member.id}"
-                          data-item="${item.id}"
-                          class="evaluation-input w-16 px-2 py-2 border-2 border-gray-300 rounded text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                      </td>
-                    `).join('')}
+                    ${state.items.map(item => {
+                      const key = `${member.id}_${item.id}`
+                      const currentValue = evalMap[key] || ''
+                      const previousValue = previousMap[key]
+                      return `
+                        <td class="border border-gray-300 bg-white px-2 py-2 text-center">
+                          <div class="flex flex-col items-center gap-1">
+                            <input type="number" min="1" max="10" 
+                              value="${currentValue}"
+                              placeholder="-"
+                              data-member="${member.id}"
+                              data-item="${item.id}"
+                              data-previous="${previousValue || ''}"
+                              class="evaluation-input w-16 px-2 py-2 border-2 border-gray-300 rounded text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            ${previousValue ? `
+                              <span class="text-xs text-gray-500">
+                                <i class="fas fa-history mr-1"></i>前回: ${previousValue}点
+                              </span>
+                            ` : ''}
+                          </div>
+                        </td>
+                      `
+                    }).join('')}
                   </tr>
                 `).join('')}
               </tbody>
             </table>
           </div>
           
-          <div class="flex justify-center mt-6">
+          <div class="flex justify-center gap-4 mt-6">
+            ${Object.keys(previousMap).length > 0 ? `
+              <button onclick="applyPreviousScores()"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg text-lg">
+                <i class="fas fa-history mr-2"></i>前回結果を反映
+              </button>
+            ` : ''}
             <button onclick="saveAllEvaluations()"
               class="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 rounded-lg text-lg">
               <i class="fas fa-save mr-2"></i>全て保存
@@ -831,6 +868,23 @@ async function showEvaluationTab() {
   } finally {
     hideLoading()
   }
+}
+
+// 前回結果を一括反映
+function applyPreviousScores() {
+  if (!confirm('前回の評価結果を全て反映しますか？\n現在入力中の内容は上書きされます。')) {
+    return
+  }
+  
+  const inputs = document.querySelectorAll('.evaluation-input')
+  inputs.forEach(input => {
+    const previousValue = input.dataset.previous
+    if (previousValue) {
+      input.value = previousValue
+    }
+  })
+  
+  alert('前回の評価結果を反映しました')
 }
 
 async function saveAllEvaluations() {
@@ -917,11 +971,18 @@ async function showMyResultsTab() {
       byMember[ev.evaluated_name].push(ev)
     })
 
+    const currentMonth = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
+    
     document.getElementById('user-content').innerHTML = `
       <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-bold mb-4">
-          <i class="fas fa-clipboard-list mr-2"></i>あなたの入力結果
-        </h2>
+        <div class="mb-4">
+          <h2 class="text-xl font-bold">
+            <i class="fas fa-clipboard-list mr-2"></i>あなたの入力結果
+          </h2>
+          <p class="text-sm text-gray-600 mt-2">
+            <i class="fas fa-calendar-alt mr-2"></i>${currentMonth}の評価内容
+          </p>
+        </div>
         
         <div class="space-y-6">
           ${Object.keys(byMember).map(name => `
@@ -940,7 +1001,7 @@ async function showMyResultsTab() {
           
           ${evaluations.length === 0 ? `
             <p class="text-gray-400 text-center py-8">
-              <i class="fas fa-info-circle mr-2"></i>まだ評価を入力していません
+              <i class="fas fa-info-circle mr-2"></i>今月はまだ評価を入力していません
             </p>
           ` : ''}
         </div>
