@@ -331,23 +331,42 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
 app.get('/api/evaluations/summary', requireAuth, async (c) => {
   const currentUser = c.get('currentUser')
   
-  // 自分の評価結果を取得
-  const { results: myScores } = await c.env.DB.prepare(`
+  // 他者からの評価結果を取得（自己評価を除外）
+  const { results: othersScores } = await c.env.DB.prepare(`
     SELECT 
       i.id as item_id,
       i.name as item_name,
       i.major_category,
       i.minor_category,
       i.display_order,
-      AVG(e.score) as my_avg_score,
+      AVG(e.score) as avg_score,
       COUNT(e.score) as count
     FROM evaluation_items i
-    LEFT JOIN evaluations e ON i.id = e.item_id AND e.evaluated_id = ?
+    LEFT JOIN evaluations e ON i.id = e.item_id 
+      AND e.evaluated_id = ? 
+      AND e.evaluator_id != ?
     GROUP BY i.id, i.name, i.major_category, i.minor_category, i.display_order
     ORDER BY i.display_order
-  `).bind(currentUser.id).all()
+  `).bind(currentUser.id, currentUser.id).all()
   
-  // チーム内全員の評価平均を取得
+  // 自己評価を取得
+  const { results: selfScores } = await c.env.DB.prepare(`
+    SELECT 
+      i.id as item_id,
+      AVG(e.score) as self_score
+    FROM evaluation_items i
+    LEFT JOIN evaluations e ON i.id = e.item_id 
+      AND e.evaluated_id = ? 
+      AND e.evaluator_id = ?
+    GROUP BY i.id
+  `).bind(currentUser.id, currentUser.id).all()
+  
+  const selfScoreMap = {}
+  selfScores.forEach(item => {
+    selfScoreMap[item.item_id] = item.self_score
+  })
+  
+  // チーム内全員の評価平均を取得（自己評価を除外）
   const { results: teamScores } = await c.env.DB.prepare(`
     SELECT 
       m.id as member_id,
@@ -357,12 +376,12 @@ app.get('/api/evaluations/summary', requireAuth, async (c) => {
     FROM members m
     JOIN evaluations e ON m.id = e.evaluated_id
     JOIN evaluation_items i ON e.item_id = i.id
-    WHERE m.team = ? AND m.role = 'user'
+    WHERE m.team = ? AND m.role = 'user' AND e.evaluator_id != e.evaluated_id
     GROUP BY m.id, m.name, i.id
   `).bind(currentUser.team).all()
   
   // チーム内平均と順位を計算
-  const summary = myScores.map(item => {
+  const summary = othersScores.map(item => {
     // この項目のチーム内全員のスコアを取得
     const itemTeamScores = teamScores
       .filter(ts => ts.item_id === item.item_id)
@@ -378,8 +397,8 @@ app.get('/api/evaluations/summary', requireAuth, async (c) => {
     
     // 自分の順位を計算（降順：高いスコアが上位）
     let rank = null
-    if (item.my_avg_score !== null) {
-      const myScore = parseFloat(item.my_avg_score)
+    if (item.avg_score !== null) {
+      const myScore = parseFloat(item.avg_score)
       rank = itemTeamScores.filter(ts => ts.avg_score > myScore).length + 1
     }
     
@@ -388,7 +407,8 @@ app.get('/api/evaluations/summary', requireAuth, async (c) => {
       item_name: item.item_name,
       major_category: item.major_category,
       minor_category: item.minor_category,
-      my_avg_score: item.my_avg_score,
+      others_avg_score: item.avg_score,
+      self_score: selfScoreMap[item.item_id] || null,
       count: item.count,
       team_avg: team_avg,
       rank: rank,
@@ -399,7 +419,7 @@ app.get('/api/evaluations/summary', requireAuth, async (c) => {
   return c.json({ summary })
 })
 
-// 月次集計結果取得（自分が評価された結果のみ）
+// 月次集計結果取得（自己評価と他者評価を分けて表示）
 app.get('/api/evaluations/monthly', requireAuth, async (c) => {
   const currentUser = c.get('currentUser')
   
@@ -411,8 +431,8 @@ app.get('/api/evaluations/monthly', requireAuth, async (c) => {
     ORDER BY year_month DESC
   `).bind(currentUser.id).all()
   
-  // 各年月の集計データを取得（自分が評価された結果のみ）
-  const { results: monthlyData } = await c.env.DB.prepare(`
+  // 各年月の他者評価データを取得（自己評価を除外）
+  const { results: othersData } = await c.env.DB.prepare(`
     SELECT 
       e.year_month,
       i.id as item_id,
@@ -422,11 +442,42 @@ app.get('/api/evaluations/monthly', requireAuth, async (c) => {
       AVG(e.score) as avg_score,
       COUNT(e.score) as count
     FROM evaluation_items i
-    LEFT JOIN evaluations e ON i.id = e.item_id AND e.evaluated_id = ? AND e.year_month IS NOT NULL
+    LEFT JOIN evaluations e ON i.id = e.item_id 
+      AND e.evaluated_id = ? 
+      AND e.evaluator_id != ?
+      AND e.year_month IS NOT NULL
     WHERE e.year_month IS NOT NULL
     GROUP BY e.year_month, i.id, i.name, i.major_category, i.minor_category
     ORDER BY e.year_month DESC, i.display_order
-  `).bind(currentUser.id).all()
+  `).bind(currentUser.id, currentUser.id).all()
+  
+  // 各年月の自己評価データを取得
+  const { results: selfData } = await c.env.DB.prepare(`
+    SELECT 
+      e.year_month,
+      i.id as item_id,
+      AVG(e.score) as self_score
+    FROM evaluation_items i
+    LEFT JOIN evaluations e ON i.id = e.item_id 
+      AND e.evaluated_id = ? 
+      AND e.evaluator_id = ?
+      AND e.year_month IS NOT NULL
+    WHERE e.year_month IS NOT NULL
+    GROUP BY e.year_month, i.id
+  `).bind(currentUser.id, currentUser.id).all()
+  
+  // 自己評価データをマップ化
+  const selfScoreMap = {}
+  selfData.forEach(item => {
+    const key = `${item.year_month}_${item.item_id}`
+    selfScoreMap[key] = item.self_score
+  })
+  
+  // 他者評価に自己評価を統合
+  const monthlyData = othersData.map(item => ({
+    ...item,
+    self_score: selfScoreMap[`${item.year_month}_${item.item_id}`] || null
+  }))
   
   return c.json({ periods, monthlyData })
 })

@@ -1016,7 +1016,7 @@ async function showSummaryTab() {
   showLoading()
   try {
     const result = await api.get('/api/evaluations/summary')
-    const summary = result.summary.filter(item => item.my_avg_score !== null)
+    const summary = result.summary.filter(item => item.others_avg_score !== null || item.self_score !== null)
 
     if (summary.length === 0) {
       document.getElementById('user-content').innerHTML = `
@@ -1032,8 +1032,16 @@ async function showSummaryTab() {
       return
     }
 
-    // 自分の総合平均とチーム内総合平均を計算
-    const myTotalAvg = (summary.reduce((sum, item) => sum + parseFloat(item.my_avg_score), 0) / summary.length).toFixed(1)
+    // 他者評価の総合平均、自己評価の総合平均、チーム内総合平均を計算
+    const othersItems = summary.filter(item => item.others_avg_score !== null)
+    const selfItems = summary.filter(item => item.self_score !== null)
+    
+    const othersTotalAvg = othersItems.length > 0 
+      ? (othersItems.reduce((sum, item) => sum + parseFloat(item.others_avg_score), 0) / othersItems.length).toFixed(1)
+      : '-'
+    const selfTotalAvg = selfItems.length > 0
+      ? (selfItems.reduce((sum, item) => sum + parseFloat(item.self_score), 0) / selfItems.length).toFixed(1)
+      : '-'
     const teamTotalAvg = (summary.reduce((sum, item) => sum + (item.team_avg || 0), 0) / summary.length).toFixed(1)
 
     document.getElementById('user-content').innerHTML = `
@@ -1042,16 +1050,23 @@ async function showSummaryTab() {
           <i class="fas fa-chart-bar mr-2"></i>あなたの評価結果
         </h2>
         <p class="text-sm text-gray-600 mb-6">
-          <i class="fas fa-info-circle mr-2"></i>チームメンバーからの評価の平均点
+          <i class="fas fa-info-circle mr-2"></i>他者評価と自己評価の比較
         </p>
         
         <!-- 総合平均 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
             <div class="text-center">
-              <div class="text-sm font-semibold mb-2">あなたの総合平均</div>
-              <div class="text-5xl font-bold">${myTotalAvg}<span class="text-2xl">点</span></div>
-              <div class="text-sm mt-2 opacity-90">10点満点</div>
+              <div class="text-sm font-semibold mb-2">他者評価の平均</div>
+              <div class="text-5xl font-bold">${othersTotalAvg}<span class="text-2xl">${othersTotalAvg !== '-' ? '点' : ''}</span></div>
+              <div class="text-sm mt-2 opacity-90">${othersTotalAvg !== '-' ? '10点満点' : '評価なし'}</div>
+            </div>
+          </div>
+          <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
+            <div class="text-center">
+              <div class="text-sm font-semibold mb-2">自己評価の平均</div>
+              <div class="text-5xl font-bold">${selfTotalAvg}<span class="text-2xl">${selfTotalAvg !== '-' ? '点' : ''}</span></div>
+              <div class="text-sm mt-2 opacity-90">${selfTotalAvg !== '-' ? '10点満点' : '評価なし'}</div>
             </div>
           </div>
           <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
@@ -1084,23 +1099,35 @@ async function showSummaryTab() {
                 <tr class="bg-gray-700 text-white">
                   <th class="border border-gray-300 px-4 py-3 text-left">大項目</th>
                   <th class="border border-gray-300 px-4 py-3 text-left">中項目</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">他者評価</th>
+                  <th class="border border-gray-300 px-4 py-3 text-center">自己評価</th>
                   <th class="border border-gray-300 px-4 py-3 text-center">チーム内平均</th>
-                  <th class="border border-gray-300 px-4 py-3 text-center">あなたの平均点</th>
                   <th class="border border-gray-300 px-4 py-3 text-center">チーム内順位</th>
                 </tr>
               </thead>
               <tbody>
                 ${summary.map(item => {
-                  const myScore = parseFloat(item.my_avg_score)
+                  const othersScore = item.others_avg_score ? parseFloat(item.others_avg_score) : null
+                  const selfScore = item.self_score ? parseFloat(item.self_score) : null
                   const teamAvg = item.team_avg ? parseFloat(item.team_avg) : 0
                   const rank = item.rank || '-'
                   const teamTotal = item.team_total || 0
                   
-                  let myScoreColor = 'text-blue-600'
-                  if (myScore >= 8) myScoreColor = 'text-green-600'
-                  else if (myScore >= 6) myScoreColor = 'text-blue-600'
-                  else if (myScore >= 4) myScoreColor = 'text-yellow-600'
-                  else myScoreColor = 'text-red-600'
+                  let othersScoreColor = 'text-blue-600'
+                  if (othersScore !== null) {
+                    if (othersScore >= 8) othersScoreColor = 'text-green-600'
+                    else if (othersScore >= 6) othersScoreColor = 'text-blue-600'
+                    else if (othersScore >= 4) othersScoreColor = 'text-yellow-600'
+                    else othersScoreColor = 'text-red-600'
+                  }
+                  
+                  let selfScoreColor = 'text-purple-600'
+                  if (selfScore !== null) {
+                    if (selfScore >= 8) selfScoreColor = 'text-green-600'
+                    else if (selfScore >= 6) selfScoreColor = 'text-purple-600'
+                    else if (selfScore >= 4) selfScoreColor = 'text-yellow-600'
+                    else selfScoreColor = 'text-red-600'
+                  }
                   
                   let rankColor = 'text-gray-600'
                   if (rank !== '-') {
@@ -1114,11 +1141,19 @@ async function showSummaryTab() {
                       <td class="border border-gray-300 px-4 py-3 font-semibold">${item.major_category || ''}</td>
                       <td class="border border-gray-300 px-4 py-3">${item.minor_category || ''}</td>
                       <td class="border border-gray-300 px-4 py-3 text-center">
-                        <span class="text-lg font-bold text-gray-700">${teamAvg.toFixed(1)}</span>
-                        <span class="text-sm text-gray-600">点</span>
+                        ${othersScore !== null ? `
+                          <span class="text-2xl font-bold ${othersScoreColor}">${othersScore.toFixed(1)}</span>
+                          <span class="text-sm text-gray-600">点</span>
+                        ` : '<span class="text-gray-400">-</span>'}
                       </td>
                       <td class="border border-gray-300 px-4 py-3 text-center">
-                        <span class="text-2xl font-bold ${myScoreColor}">${myScore.toFixed(1)}</span>
+                        ${selfScore !== null ? `
+                          <span class="text-xl font-bold ${selfScoreColor}">${selfScore.toFixed(1)}</span>
+                          <span class="text-sm text-gray-600">点</span>
+                        ` : '<span class="text-gray-400">-</span>'}
+                      </td>
+                      <td class="border border-gray-300 px-4 py-3 text-center">
+                        <span class="text-lg font-bold text-gray-700">${teamAvg.toFixed(1)}</span>
                         <span class="text-sm text-gray-600">点</span>
                       </td>
                       <td class="border border-gray-300 px-4 py-3 text-center">
@@ -1135,7 +1170,7 @@ async function showSummaryTab() {
       </div>
     `
     
-    // Chart.jsで折れ線グラフを描画（自分の点数 vs チーム平均）
+    // Chart.jsで折れ線グラフを描画（他者評価 vs 自己評価 vs チーム平均）
     const ctx = document.getElementById('summaryChart')
     if (ctx) {
       new Chart(ctx, {
@@ -1144,12 +1179,26 @@ async function showSummaryTab() {
           labels: summary.map(item => `${item.major_category || ''}\n${item.minor_category || ''}`),
           datasets: [
             {
-              label: 'あなたの評価点',
-              data: summary.map(item => parseFloat(item.my_avg_score)),
+              label: '他者評価',
+              data: summary.map(item => item.others_avg_score ? parseFloat(item.others_avg_score) : null),
               borderColor: 'rgb(59, 130, 246)',
               backgroundColor: 'rgba(59, 130, 246, 0.1)',
               borderWidth: 3,
               pointBackgroundColor: 'rgb(59, 130, 246)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              tension: 0.3,
+              fill: true
+            },
+            {
+              label: '自己評価',
+              data: summary.map(item => item.self_score ? parseFloat(item.self_score) : null),
+              borderColor: 'rgb(168, 85, 247)',
+              backgroundColor: 'rgba(168, 85, 247, 0.1)',
+              borderWidth: 3,
+              pointBackgroundColor: 'rgb(168, 85, 247)',
               pointBorderColor: '#fff',
               pointBorderWidth: 2,
               pointRadius: 6,
@@ -1237,7 +1286,7 @@ async function showMonthlyTab() {
       return
     }
     
-    // データを整形（項目別に月次データを集約）
+    // データを整形（項目別に月次データを集約、他者評価と自己評価を分離）
     const itemMap = {}
     monthlyData.forEach(data => {
       if (!itemMap[data.item_id]) {
@@ -1246,19 +1295,31 @@ async function showMonthlyTab() {
           name: data.item_name,
           major: data.major_category,
           minor: data.minor_category,
-          months: {}
+          othersMonths: {},
+          selfMonths: {}
         }
       }
-      itemMap[data.item_id].months[data.year_month] = parseFloat(data.avg_score).toFixed(1)
+      if (data.avg_score !== null) {
+        itemMap[data.item_id].othersMonths[data.year_month] = parseFloat(data.avg_score).toFixed(1)
+      }
+      if (data.self_score !== null) {
+        itemMap[data.item_id].selfMonths[data.year_month] = parseFloat(data.self_score).toFixed(1)
+      }
     })
     
     const items = Object.values(itemMap)
     
-    // 総合平均データを計算
-    const avgData = periods.map(p => {
-      const periodItems = items.filter(item => item.months[p.year_month])
+    // 他者評価と自己評価の総合平均データを計算
+    const othersAvgData = periods.map(p => {
+      const periodItems = items.filter(item => item.othersMonths[p.year_month])
       if (periodItems.length === 0) return null
-      return (periodItems.reduce((sum, item) => sum + parseFloat(item.months[p.year_month]), 0) / periodItems.length)
+      return (periodItems.reduce((sum, item) => sum + parseFloat(item.othersMonths[p.year_month]), 0) / periodItems.length)
+    })
+    
+    const selfAvgData = periods.map(p => {
+      const periodItems = items.filter(item => item.selfMonths[p.year_month])
+      if (periodItems.length === 0) return null
+      return (periodItems.reduce((sum, item) => sum + parseFloat(item.selfMonths[p.year_month]), 0) / periodItems.length)
     })
     
     document.getElementById('user-content').innerHTML = `
@@ -1317,28 +1378,36 @@ async function showMonthlyTab() {
                       <div class="text-sm text-gray-600">${item.minor}</div>
                     </td>
                     ${periods.map(p => {
-                      const score = item.months[p.year_month] || '-'
+                      const othersScore = item.othersMonths[p.year_month] || '-'
+                      const selfScore = item.selfMonths[p.year_month] || '-'
                       const prevPeriod = periods[periods.indexOf(p) + 1]
-                      const prevScore = prevPeriod ? item.months[prevPeriod.year_month] : null
+                      const prevOthersScore = prevPeriod ? item.othersMonths[prevPeriod.year_month] : null
                       let trendIcon = ''
                       let trendColor = 'text-gray-800'
                       
-                      if (score !== '-' && prevScore && prevScore !== '-') {
-                        const diff = parseFloat(score) - parseFloat(prevScore)
+                      if (othersScore !== '-' && prevOthersScore && prevOthersScore !== '-') {
+                        const diff = parseFloat(othersScore) - parseFloat(prevOthersScore)
                         if (diff > 0) {
-                          trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-2"></i>'
+                          trendIcon = '<i class="fas fa-arrow-up text-green-500 ml-1"></i>'
                           trendColor = 'text-green-600'
                         } else if (diff < 0) {
-                          trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-2"></i>'
+                          trendIcon = '<i class="fas fa-arrow-down text-red-500 ml-1"></i>'
                           trendColor = 'text-red-600'
                         } else {
-                          trendIcon = '<i class="fas fa-minus text-gray-400 ml-2"></i>'
+                          trendIcon = '<i class="fas fa-minus text-gray-400 ml-1"></i>'
                         }
                       }
                       
                       return `
                         <td class="border border-gray-300 bg-white px-4 py-3 text-center">
-                          <span class="text-lg font-bold ${trendColor}">${score}${score !== '-' ? '点' : ''}</span>${trendIcon}
+                          <div class="mb-1">
+                            <span class="text-xs text-gray-500">他者:</span>
+                            <span class="text-lg font-bold ${trendColor}">${othersScore}${othersScore !== '-' ? '点' : ''}</span>${trendIcon}
+                          </div>
+                          <div>
+                            <span class="text-xs text-gray-500">自己:</span>
+                            <span class="text-sm font-semibold text-purple-600">${selfScore}${selfScore !== '-' ? '点' : ''}</span>
+                          </div>
                         </td>
                       `
                     }).join('')}
@@ -1351,27 +1420,43 @@ async function showMonthlyTab() {
       </div>
     `
     
-    // 総合平均の折れ線グラフ
+    // 総合平均の折れ線グラフ（他者評価 vs 自己評価）
     const avgCtx = document.getElementById('monthlyAvgChart')
     if (avgCtx) {
       new Chart(avgCtx, {
         type: 'line',
         data: {
           labels: periods.map(p => p.year_month).reverse(),
-          datasets: [{
-            label: '総合平均',
-            data: avgData.reverse(),
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            borderWidth: 3,
-            pointBackgroundColor: 'rgb(59, 130, 246)',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 8,
-            tension: 0.3,
-            fill: true
-          }]
+          datasets: [
+            {
+              label: '他者評価の平均',
+              data: othersAvgData.reverse(),
+              borderColor: 'rgb(59, 130, 246)',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              borderWidth: 3,
+              pointBackgroundColor: 'rgb(59, 130, 246)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              tension: 0.3,
+              fill: true
+            },
+            {
+              label: '自己評価の平均',
+              data: selfAvgData.reverse(),
+              borderColor: 'rgb(168, 85, 247)',
+              backgroundColor: 'rgba(168, 85, 247, 0.1)',
+              borderWidth: 3,
+              pointBackgroundColor: 'rgb(168, 85, 247)',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              tension: 0.3,
+              fill: true
+            }
+          ]
         },
         options: {
           responsive: true,
@@ -1384,7 +1469,7 @@ async function showMonthlyTab() {
             tooltip: {
               callbacks: {
                 label: function(context) {
-                  return '総合平均: ' + context.parsed.y.toFixed(1) + '点'
+                  return context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(1) + '点' : '-')
                 }
               }
             }
