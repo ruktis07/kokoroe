@@ -290,9 +290,9 @@ app.post('/api/evaluations', requireAuth, async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, updated_at)
     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(evaluator_id, evaluated_id, item_id) 
-    DO UPDATE SET score = ?, year_month = ?, updated_at = CURRENT_TIMESTAMP
-  `).bind(currentUser.id, evaluated_id, item_id, score, yearMonth, score, yearMonth).run()
+    ON CONFLICT(evaluator_id, evaluated_id, item_id, year_month) 
+    DO UPDATE SET score = ?, updated_at = CURRENT_TIMESTAMP
+  `).bind(currentUser.id, evaluated_id, item_id, score, yearMonth, score).run()
 
   return c.json({ success: true })
 })
@@ -319,9 +319,9 @@ app.post('/api/evaluations/bulk', requireAuth, async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, updated_at)
       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(evaluator_id, evaluated_id, item_id) 
-      DO UPDATE SET score = ?, year_month = ?, updated_at = CURRENT_TIMESTAMP
-    `).bind(currentUser.id, evaluated_id, item_id, score, yearMonth, score, yearMonth).run()
+      ON CONFLICT(evaluator_id, evaluated_id, item_id, year_month) 
+      DO UPDATE SET score = ?, updated_at = CURRENT_TIMESTAMP
+    `).bind(currentUser.id, evaluated_id, item_id, score, yearMonth, score).run()
   }
 
   return c.json({ success: true, count: evaluations.length })
