@@ -1,0 +1,61 @@
+-- 28項目に対応した2026年1月テストデータ (item_id: 6-33)
+
+-- user001(id:2)がuser002(id:3)を評価 - 28項目全て
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 6, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 7, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 8, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 9, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 10, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 11, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 12, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 13, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 14, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 15, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 16, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 17, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 18, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 19, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 20, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 21, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 22, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 23, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 24, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 25, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 26, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 27, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 28, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 29, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 30, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 31, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 32, 7, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 3, 33, 8, '2026-01', '2026-01-15 10:00:00', '2026-01-15 10:00:00');
+
+-- user001(id:2)がuser003(id:4)を評価 - 28項目全て
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 6, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 7, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 8, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 9, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 10, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 11, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 12, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 13, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 14, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 15, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 16, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 17, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 18, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 19, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 20, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 21, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 22, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 23, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 24, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 25, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 26, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 27, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 28, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 29, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 30, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 31, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 32, 6, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
+INSERT INTO evaluations (evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at) VALUES (2, 4, 33, 7, '2026-01', '2026-01-15 11:00:00', '2026-01-15 11:00:00');
