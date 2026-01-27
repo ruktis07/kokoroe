@@ -356,12 +356,10 @@ function showItemsTab() {
   document.getElementById('admin-content').innerHTML = `
     <div class="bg-white rounded-lg shadow p-6 mb-6">
       <h2 class="text-xl font-bold mb-4"><i class="fas fa-plus-circle mr-2"></i>評価項目追加</h2>
-      <form id="add-item-form" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <form id="add-item-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <input type="text" id="new-item-major" placeholder="大項目" required
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
         <input type="text" id="new-item-minor" placeholder="中項目" required
-          class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-        <input type="text" id="new-item-desc" placeholder="説明"
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
         <input type="number" id="new-item-order" placeholder="表示順" value="${maxOrder}"
           class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
@@ -380,7 +378,6 @@ function showItemsTab() {
               <div class="flex-1">
                 <div class="font-semibold text-lg text-blue-600">${item.major_category || ''}</div>
                 <div class="font-medium">${item.minor_category || ''}</div>
-                <div class="text-sm text-gray-600 mt-1">${item.description || ''}</div>
                 <div class="text-xs text-gray-400 mt-1">表示順: ${item.display_order}</div>
               </div>
               <div class="flex items-center space-x-2">
@@ -395,12 +392,10 @@ function showItemsTab() {
               </div>
             </div>
             <div id="item-edit-${item.id}" class="hidden">
-              <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <input type="text" id="edit-major-${item.id}" value="${item.major_category || ''}" placeholder="大項目"
                   class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
                 <input type="text" id="edit-minor-${item.id}" value="${item.minor_category || ''}" placeholder="中項目"
-                  class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-                <input type="text" id="edit-desc-${item.id}" value="${item.description || ''}" placeholder="説明"
                   class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
                 <input type="number" id="edit-order-${item.id}" value="${item.display_order}" placeholder="表示順"
                   class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
@@ -434,7 +429,7 @@ function showItemsTab() {
       await api.post('/api/items', {
         major_category: document.getElementById('new-item-major').value,
         minor_category: document.getElementById('new-item-minor').value,
-        description: document.getElementById('new-item-desc').value,
+        description: '',
         display_order: parseInt(document.getElementById('new-item-order').value)
       })
       await loadItems()
@@ -464,7 +459,7 @@ async function saveEditItem(id) {
     await api.put(`/api/items/${id}`, {
       major_category: document.getElementById(`edit-major-${id}`).value,
       minor_category: document.getElementById(`edit-minor-${id}`).value,
-      description: document.getElementById(`edit-desc-${id}`).value,
+      description: '',
       display_order: parseInt(document.getElementById(`edit-order-${id}`).value)
     })
     await loadItems()
@@ -798,16 +793,6 @@ async function showEvaluationTab() {
                       <div class="font-bold text-sm">${item.major_category || ''}</div>
                       <div class="text-xs mt-1 font-normal">${item.minor_category || ''}</div>
                     </th>
-                  `).join('')}
-                </tr>
-                <tr>
-                  <td class="border border-gray-300 bg-gray-100 px-4 py-2 text-xs text-gray-600 sticky left-0 z-10">
-                    評価項目の説明
-                  </td>
-                  ${state.items.map(item => `
-                    <td class="border border-gray-300 bg-gray-100 px-2 py-2 text-xs text-gray-600 text-center">
-                      ${item.description || ''}
-                    </td>
                   `).join('')}
                 </tr>
               </thead>
