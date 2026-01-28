@@ -231,7 +231,8 @@ app.get('/api/evaluations/my', requireAuth, async (c) => {
   const { results } = await c.env.DB.prepare(`
     SELECT e.*, 
            m.name as evaluated_name,
-           i.name as item_name
+           i.major_category,
+           i.minor_category
     FROM evaluations e
     JOIN members m ON e.evaluated_id = m.id
     JOIN evaluation_items i ON e.item_id = i.id

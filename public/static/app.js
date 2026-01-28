@@ -976,7 +976,10 @@ async function showMyResultsTab() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 ${byMember[name].map(ev => `
                   <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <span class="font-semibold">${ev.item_name}</span>
+                    <div>
+                      <div class="font-bold text-sm text-blue-600">${ev.major_category}</div>
+                      <div class="font-medium text-sm">${ev.minor_category}</div>
+                    </div>
                     <span class="text-lg font-bold text-blue-600">${ev.score}点</span>
                   </div>
                 `).join('')}
