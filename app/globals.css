@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+h1 {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ============================================
+   色とスタイルの統一管理
+   このファイルで色を変更すると、アプリ全体に反映されます
+   ============================================ */
+
+/* テーブルヘッダー（採点フォーム・採点調整画面） */
+.table-header-major-category {
+  /* 大項目のスタイル - 青背景に白文字、8文字分折り返しなし */
+  font-weight: bold;
+  font-size: 0.875rem;
+  color: white;
+  white-space: nowrap;
+  min-width: 8em;
+}
+
+.table-header-minor-category {
+  /* 中項目のスタイル - 青背景に白文字（見やすくするため少し薄め） */
+  font-size: 0.75rem;
+  font-weight: normal;
+  color: rgba(255, 255, 255, 0.9); /* 少し薄い白で見やすく */
+  margin-top: 0.25rem;
+  word-break: break-word;
+}
+
+/* 評価項目管理画面 */
+.evaluation-item-major-category {
+  /* 大項目のスタイル - 青文字 */
+  font-weight: 600;
+  font-size: 1.125rem;
+  color: #2563eb; /* blue-600 */
+}
+
+.evaluation-item-minor-category {
+  /* 中項目のスタイル - 黒文字 */
+  font-weight: 500;
+  color: #1f2937; /* gray-800 */
+}
+
+/* メンバー名のスタイル */
+.member-name {
+  /* メンバー名のスタイル - 黒文字 */
+  font-weight: 600;
+  color: #1f2937; /* gray-800 */
+}
+
+.member-username {
+  /* ユーザー名のスタイル - グレー文字 */
+  font-size: 0.875rem;
+  color: #4b5563; /* gray-600 */
+}
+
+/* 入力結果・集計結果画面 */
+.result-major-category {
+  /* 大項目のスタイル - 青文字、8文字分折り返しなし */
+  font-weight: bold;
+  font-size: 0.875rem;
+  color: #2563eb; /* blue-600 */
+  white-space: nowrap;
+}
+
+.result-minor-category {
+  /* 中項目のスタイル - 黒文字 */
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: #1f2937; /* gray-800 */
+}
+
+/* テーブルのセル内テキスト */
+.table-cell-text {
+  /* テーブルセル内の通常テキスト - 黒文字 */
+  color: #1f2937; /* gray-800 */
+}
+
+.table-cell-text-secondary {
+  /* テーブルセル内のサブテキスト - グレー文字 */
+  color: #4b5563; /* gray-600 */
+}
+
+/* フォームラベル（パスワード変更画面など） */
+.form-label {
+  /* フォームのラベル文字 - 黒文字で見やすく */
+  color: #1f2937; /* gray-800 */
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* フォーム入力フィールド */
+.form-input {
+  /* フォームの入力フィールド - 白背景に黒文字 */
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db; /* gray-300 */
+  border-radius: 0.5rem;
+  color: #1f2937; /* gray-800 */
+  background-color: white;
+}
+
+.form-input:focus {
+  /* フォーカス時のスタイル */
+  outline: none;
+  ring: 2px;
+  ring-color: #3b82f6; /* blue-500 */
+  border-color: #3b82f6;
+}
+
+/* ============================================
+   スマホ・タブレット向け
+   ============================================ */
+
+/* タッチ操作で意図しないズームを抑えつつ、入力欄は拡大可能 */
+@media (pointer: coarse) {
+  input:not([type="number"]),
+  select,
+  textarea {
+    font-size: 16px !important; /* iOSでフォーカス時にズームされないように */
+  }
+}
+
+/* テーブル横スクロール時の見た目 */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}

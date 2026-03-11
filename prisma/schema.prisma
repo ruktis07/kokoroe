@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Member {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  name      String
+  team      String?  @db.Char(1)
+  role      String   @default("user") // "admin" or "user"
+  password  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  evaluationsAsEvaluator Evaluation[] @relation("Evaluator")
+  evaluationsAsEvaluated Evaluation[] @relation("Evaluated")
+  othersScoreAdjustments OthersScoreAdjustment[]
+  tabViewLogs          TabViewLog[]
+
+  @@map("members")
+  @@index([team])
+  @@index([username])
+}
+
+model EvaluationItem {
+  id             Int      @id @default(autoincrement())
+  majorCategory  String   @default("") @map("major_category")
+  minorCategory  String   @default("") @map("minor_category")
+  displayOrder   Int      @default(0) @map("display_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  evaluations    Evaluation[]
+  othersScoreAdjustments OthersScoreAdjustment[]
+
+  @@map("evaluation_items")
+  @@index([displayOrder])
+}
+
+model Evaluation {
+  id          Int      @id @default(autoincrement())
+  evaluatorId Int      @map("evaluator_id")
+  evaluatedId Int      @map("evaluated_id")
+  itemId      Int      @map("item_id")
+  score       Int      // 1-10
+  yearMonth   String?  @map("year_month") @db.VarChar(7)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  evaluator   Member         @relation("Evaluator", fields: [evaluatorId], references: [id], onDelete: Cascade)
+  evaluated   Member         @relation("Evaluated", fields: [evaluatedId], references: [id], onDelete: Cascade)
+  item        EvaluationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluatorId, evaluatedId, itemId, yearMonth], name: "evaluator_evaluated_item_year_month")
+  @@map("evaluations")
+  @@index([evaluatorId])
+  @@index([evaluatedId])
+  @@index([itemId])
+  @@index([yearMonth])
+}
+
+model OthersScoreAdjustment {
+  id            Int      @id @default(autoincrement())
+  memberId      Int      @map("member_id")
+  itemId        Int      @map("item_id")
+  yearMonth     String   @map("year_month") @db.VarChar(7)
+  adjustedScore Float    @map("adjusted_score")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  member Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  item   EvaluationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, itemId, yearMonth])
+  @@map("others_score_adjustments")
+  @@index([memberId])
+}
+
+model EvaluationPeriod {
+  id        Int      @id @default(autoincrement())
+  yearMonth String   @unique @map("year_month") @db.VarChar(7)
+  startDate String   @map("start_date") @db.VarChar(10)
+  endDate   String   @map("end_date") @db.VarChar(10)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("evaluation_periods")
+  @@index([yearMonth])
+  @@index([isActive])
+}
+
+model TabViewLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  tab       String   @db.VarChar(20) // "summary" | "monthly"
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  user Member @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("tab_view_logs")
+  @@index([userId])
+  @@index([viewedAt])
+}
