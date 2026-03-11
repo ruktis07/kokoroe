@@ -12,7 +12,8 @@ const multilineYLabelsPlugin = {
   afterDraw(chart: Chart) {
     const yScale = chart.scales.y
     if (!yScale || !yScale.ticks?.length) return
-    const ticksOpts = yScale.options.ticks as { display?: boolean; font?: { size?: number }; color?: string }
+    const scaleOpts = yScale.options as { ticks?: { display?: boolean; font?: { size?: number }; color?: string } }
+    const ticksOpts = scaleOpts.ticks
     if (ticksOpts?.display !== false) return
     const fontSize = typeof ticksOpts?.font?.size === 'number' ? ticksOpts.font.size : 11
     const color = ticksOpts?.color ?? '#666'
