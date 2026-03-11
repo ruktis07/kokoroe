@@ -105,9 +105,9 @@ export async function GET() {
       }
     })
 
-    monthlyData = monthlyData.filter(d => d.year_month < currentYearMonth)
+    monthlyData = monthlyData.filter(d => d.year_month != null && d.year_month < currentYearMonth)
     if (adjustedSet.size > 0) {
-      monthlyData = monthlyData.filter(d => adjustedSet.has(d.year_month))
+      monthlyData = monthlyData.filter(d => d.year_month != null && adjustedSet.has(d.year_month))
     }
 
     return NextResponse.json({
