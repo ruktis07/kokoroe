@@ -170,6 +170,12 @@ export default function SummaryTab({ isAdmin = false }: SummaryTabProps) {
           layout: {
             padding: { left: isNarrow ? 110 : 8, right: 8, top: 0, bottom: 0 },
           },
+          datasets: {
+            bar: {
+              barPercentage: isNarrow ? 0.35 : 0.9,
+              categoryPercentage: isNarrow ? 0.7 : 0.8,
+            },
+          },
           plugins: {
             legend: { display: true, position: 'top' },
             tooltip: {
@@ -194,8 +200,6 @@ export default function SummaryTab({ isAdmin = false }: SummaryTabProps) {
                 maxRotation: 0,
                 minRotation: 0,
               },
-              barPercentage: isNarrow ? 0.35 : 0.9,
-              categoryPercentage: isNarrow ? 0.7 : 0.8,
             },
           },
         },
