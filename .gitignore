@@ -37,3 +37,6 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations
+
+# 本番用エクスポート（ユーザー・パスワード含むためコミットしない）
+/supabase/seed-members-and-items.sql

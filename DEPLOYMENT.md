@@ -4,6 +4,40 @@
 
 ---
 
+## やること一覧（何をすればいいか）
+
+| # | どこで | やること |
+|---|--------|----------|
+| 1 | Supabase | プロジェクトを作成する |
+| 2 | Supabase SQL Editor | Prisma 用ユーザーを作る SQL を実行する |
+| 3 | Supabase | Project Settings → Database で接続文字列を2種類コピーする（ポート 6543 と 5432） |
+| 4 | Supabase SQL Editor | **テーブル作成:** `supabase/init_schema.sql` の内容を貼って実行する |
+| 5 | ローカル | **データ取り込み用 SQL を生成:** `npm run export-for-production` を実行する（ユーザー・項目・評価期間のみ。採点結果は含まない） |
+| 6 | Supabase SQL Editor | **データ投入:** 生成された `supabase/seed-members-and-items.sql` の内容を貼って実行する |
+| 7 | Vercel | このリポジトリをインポートしてプロジェクトを作成する |
+| 8 | Vercel | Settings → Environment Variables で `DATABASE_URL`（6543・pgbouncer=true）と `DIRECT_URL`（5432）を登録する |
+| 9 | Vercel | Deploy してビルドが通れば完了 |
+
+**ローカル開発を今まで通り使う場合:** `.env` に `DATABASE_URL` と `DIRECT_URL` を**同じローカルDBのURL**で書く（テストデータはそのまま使える）。詳しくは下の「ローカル開発」を参照。
+
+---
+
+## ローカル開発（従来どおり・テストデータもそのまま）
+
+**ローカルで動かすときは、今までと同じ動きになります。** 既存のテストデータもそのまま使えます。
+
+- **やること:** `.env` に `DATABASE_URL` と `DIRECT_URL` の **両方** を、**同じローカルDBのURL** で設定する。
+- すでに `DATABASE_URL` だけある場合は、`DIRECT_URL` に同じ値をコピーして追加するだけです。
+- `npm run dev` / `prisma migrate dev` / `prisma db push` / `prisma db seed` は今まで通り使えます。挙動は変わりません。
+
+```env
+# 例: ローカル PostgreSQL を今まで通り使う場合
+DATABASE_URL="postgresql://user:password@localhost:5432/kokoroe"
+DIRECT_URL="postgresql://user:password@localhost:5432/kokoroe"
+```
+
+---
+
 ## 1. Supabase の準備
 
 ### 1.1 プロジェクト作成
@@ -58,55 +92,242 @@ DIRECT_URL="postgres://prisma.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.sup
 
 ## 2. データベースのマイグレーション
 
-Supabase の DB を初めて使う場合は、ローカルでマイグレーションを実行します。
+ここでは、Supabase 上に **テーブル（スキーマ）を作る** 手順を説明します。  
+「マイグレーション」＝アプリで使うテーブル（members, evaluation_items など）を Supabase の PostgreSQL に作成すること、と考えるとよいです。
+
+---
+
+### 2.1 やり方の選択
+
+次の **2通り** があります。**ローカルでコマンドを打たずに済ませたい場合は A** を選んでください。
+
+| 方法 | どこでやるか | いつ向きか |
+|------|----------------|------------|
+| **A. Supabase の SQL を実行する** | Supabase の画面だけ | ローカルで Prisma を動かさない・テーブルだけ作りたいとき |
+| **B. ローカルで Prisma を使う** | 自分のPC（ターミナル） | すでに Prisma のマイグレーション履歴を管理しているとき |
+
+---
+
+### 2.2 方法 A: Supabase の SQL Editor でテーブルを作る（ローカル不要）
+
+**やること:** プロジェクトに含まれている `supabase/init_schema.sql` を、Supabase の **SQL Editor** に貼り付けて実行するだけです。
+
+#### 手順
+
+1. **Supabase ダッシュボードを開く**  
+   [Supabase](https://supabase.com) にログインし、対象のプロジェクト（例: kokoroe 用に作ったプロジェクト）を選択する。
+
+2. **SQL Editor を開く**  
+   左サイドバーの **「SQL Editor」** をクリックする。  
+   （初回は「New query」などと表示されていることがあります。）
+
+3. **新しいクエリを開く**  
+   「+ New query」や「New query」ボタンをクリックし、空の入力欄を表示する。
+
+4. **init_schema.sql の内容を貼り付ける**  
+   - このリポジトリの **`supabase/init_schema.sql`** をエディタで開く。  
+   - ファイルの中身を **すべて** 選択してコピーする（Ctrl+A → Ctrl+C）。  
+   - Supabase の SQL Editor の入力欄に **貼り付ける**（Ctrl+V）。
+
+5. **実行する**  
+   画面下部の **「Run」**（または「実行」）ボタンをクリックする。  
+   成功すると「Success. No rows returned」のようなメッセージが出ます。
+
+6. **テーブルができたか確認する（任意）**  
+   左サイドバーの **「Table Editor」** を開くと、`members` や `evaluation_items` などのテーブルが一覧に出ていれば完了です。
+
+これで **テーブル作成（マイグレーション）は完了** です。次の「2.5 本番用データの取り込み」で、ユーザー・項目・評価期間のデータを入れます。
+
+---
+
+### 2.3 方法 B: ローカルで Prisma を使ってマイグレーションする
+
+**.env に Supabase の接続情報（DATABASE_URL と DIRECT_URL）を入れたうえで**、自分のPCのターミナルで次を実行します。
+
+#### 初めて Supabase にテーブルを作る場合
 
 ```bash
-# .env に DATABASE_URL と DIRECT_URL を設定したうえで
-cp .env.example .env
-# .env を編集して Supabase の接続情報を入れる
-
+# プロジェクトのルートフォルダで
 npx prisma migrate dev --name init
-# または既存スキーマを反映するだけなら
+```
+
+または「マイグレーション履歴は作らず、スキーマだけ反映したい」場合:
+
+```bash
 npx prisma db push
 ```
 
-既存のマイグレーションがある場合は:
+- `migrate dev` … マイグレーション履歴が残り、あとから本番で `migrate deploy` が使える。  
+- `db push` … 今の schema.prisma の内容をそのまま DB に反映するだけ（履歴は残らない）。
+
+#### すでにマイグレーション履歴がある場合
+
+本番（Supabase）に、すでにあるマイグレーションを適用するだけなら:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-シードデータを入れる場合:
+#### シード（初期データ）を入れる場合
+
+ユーザーや項目を Prisma の seed で入れたい場合（ローカル用のテストデータなど）:
 
 ```bash
 npx prisma db seed
 ```
 
+※ 本番では「2.5 本番用データの取り込み」のエクスポート用 SQL を使う想定です。
+
+---
+
+### 2.4 ここまでのまとめ
+
+- **方法 A:** Supabase の SQL Editor で `supabase/init_schema.sql` を実行 → テーブルができる（ローカル不要）。  
+- **方法 B:** ローカルで `prisma migrate dev` または `prisma db push` を実行 → Supabase にテーブルができる。  
+
+どちらか一方を実行すれば、**2. データベースのマイグレーション** は完了です。次は「2.5」でデータを取り込みます。
+
+---
+
+### 2.5 本番用データの取り込み（ユーザー・項目・評価期間のみ・採点結果は含まない）
+
+Vercel + Supabase では、**ユーザー（members）・項目（evaluation_items）・評価期間（evaluation_periods）だけ**を取り込み、**採点結果（evaluations 等）は取り込まない**運用にします。
+
+#### 手順（3ステップ）
+
+**ステップ 1: ローカルで「取り込み用 SQL」を生成する**
+
+- **重要:** `.env` の `DATABASE_URL` と `DIRECT_URL` を **ローカルDB**（今まで使っているテスト用 PostgreSQL）にしておく。  
+  - Supabase を指したままだと「Authentication failed」になる。エクスポートは「ローカルから」データを読む処理です。
+- プロジェクトのルートで次を実行する:
+  ```bash
+  npm run export-for-production
+  ```
+- 実行が終わると、**`supabase/seed-members-and-items.sql`** というファイルがプロジェクト内に生成される。  
+  - 中身は **members / evaluation_items / evaluation_periods だけ**の INSERT 文で、採点結果は含まれない。
+
+**ステップ 2: Supabase にテーブルがあるか確認する**
+
+- まだテーブルを作っていない場合は、**2.2 方法 A** のとおり、Supabase の SQL Editor で **`supabase/init_schema.sql`** を実行してテーブルを作成する。  
+- すでに 2.2 または 2.3 でテーブルを作ってあれば、このステップは飛ばしてよい。
+
+**ステップ 3: 生成した SQL を Supabase で実行する**
+
+1. Supabase の **SQL Editor** を開く。  
+2. **「+ New query」** で新しいクエリを開く。  
+3. 生成された **`supabase/seed-members-and-items.sql`** の内容を **すべて** コピーし、SQL Editor に貼り付ける。  
+4. **「Run」** をクリックして実行する。  
+5. 成功すると、Supabase の **Table Editor** で `members` や `evaluation_items` を開いたときに、データが入っているはずです。採点結果は入っていません。
+
 ---
 
 ## 3. Vercel の準備
 
-### 3.1 プロジェクトのデプロイ
+Vercel にこのアプリをデプロイし、Supabase の DB に接続できるようにします。
 
-1. [Vercel](https://vercel.com) にログインし、**Add New** → **Project** でこのリポジトリをインポートします。
-2. **Framework Preset** は **Next.js** のままにします。
-3. **Root Directory** はリポジトリルートのままにします。
-4. **Build Command** は `prisma generate && next build`（`package.json` の `build` で既に指定済みのため、未指定で問題ありません）。
+---
 
-### 3.2 環境変数の設定
+### 3.1 プロジェクトのデプロイ（詳しい手順）
 
-Vercel の **Settings** → **Environment Variables** で次を追加します。
+#### 前提
 
-| 名前 | 値 | 備考 |
-|------|-----|------|
-| `DATABASE_URL` | 上記の **6543** の接続文字列（`?pgbouncer=true` 付き） | Production / Preview / Development に設定 |
-| `DIRECT_URL` | 上記の **5432** の接続文字列 | 本番で `prisma migrate deploy` を Vercel で行う場合や、ビルド時の Prisma 用。通常は Vercel ではマイグレーションを実行しないので、同じ値でも可 |
+- このプロジェクトのコードが **GitHub** などにプッシュ済みであること。
+- Vercel と GitHub を連携していない場合は、最初に Vercel の画面で GitHub アカウントを接続する。
 
-- **重要:** Vercel 上でマイグレーションを実行しない場合は、`DIRECT_URL` に 5432 の URL を入れておけば、ビルドがスキーマを参照する際に使われます。アプリのランタイムでは `DATABASE_URL`（6543）のみが使われます。
+#### 手順
 
-### 3.3 デプロイ
+1. **Vercel にログインする**  
+   [https://vercel.com](https://vercel.com) を開き、ログインする。
 
-**Deploy** を実行し、ビルドが成功すれば完了です。カスタムドメインの設定は Vercel の **Settings** → **Domains** から行えます。
+2. **新規プロジェクトを作成する**  
+   - ダッシュボードで **「Add New」** をクリックする。  
+   - 一覧から **「Project」** を選ぶ。
+
+3. **リポジトリを選ぶ**  
+   - 一覧に GitHub のリポジトリ（例: `ruktis07/kokoroe`）が出るので、その横の **「Import」** をクリックする。  
+   - リポジトリが表示されない場合は、**「Adjust GitHub App Permissions」** などで Vercel にリポジトリへのアクセスを許可する。
+
+4. **設定画面で確認する**  
+   - **Project Name:** そのままでよい（例: `kokoroe`）。  
+   - **Framework Preset:** **Next.js** のまま（自動検出されているはず）。  
+   - **Root Directory:** 空のまま（リポジトリのルートが対象）。  
+   - **Build Command:** 空のままでよい。`package.json` の `"build": "prisma generate && next build"` が使われる。  
+   - **Output Directory:** 空のまま。  
+   - **Install Command:** 空のまま（`npm install` が使われる）。
+
+5. **環境変数はここでは入れない**  
+   - いったん **「Deploy」** で進める（初回はビルドが失敗してもよい）。  
+   - 次の「3.2」で環境変数を追加してから **Redeploy** する。
+
+6. **Deploy をクリックする**  
+   - ビルドが始まる。  
+   - 環境変数（`DATABASE_URL` / `DIRECT_URL`）をまだ入れていない場合は、ビルドは通っても本番で DB 接続エラーになることがある。その場合は 3.2 で環境変数を入れてから **Redeploy** する。
+
+7. **デプロイ完了後**  
+   - 成功すると **「Visit」** で本番URL（例: `https://kokoroe-xxx.vercel.app`）が開く。  
+   - 環境変数を入れたあとは、**Deployments** タブ → 最新のデプロイの「⋯」→ **Redeploy** で再デプロイする。
+
+---
+
+### 3.2 環境変数の設定（詳しい手順）
+
+Vercel でアプリが Supabase に接続するには、**環境変数**に接続文字列を登録します。
+
+#### 手順
+
+1. **Vercel にログイン**して、対象のプロジェクト（kokoroe）を開く。
+
+2. **上部メニューで「Settings」をクリック**する。
+
+3. **左サイドバーで「Environment Variables」をクリック**する。
+   - ここで「Key（名前）」と「Value（値）」を登録する。
+
+4. **1つ目: DATABASE_URL を追加**
+   - **Key:** `DATABASE_URL`（大文字小文字どおりに）
+   - **Value:** ポート **6543** の接続文字列。末尾に `?pgbouncer=true` が付いていること。
+     - 例:  
+       `postgresql://postgres.yfwpgiqsxtdqawgwrhmk:%5Bmizutani-12%5D@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true`
+   - **Environment:** 本番だけなら **Production** にチェック。プレビューや開発用にも使うなら **Preview** と **Development** にもチェックを入れる。
+   - **Save** をクリックする。
+
+5. **2つ目: DIRECT_URL を追加**
+   - **Key:** `DIRECT_URL`
+   - **Value:** ポート **5432** の接続文字列（`?pgbouncer=true` は付けない）。
+     - 例:  
+       `postgresql://postgres.yfwpgiqsxtdqawgwrhmk:%5Bmizutani-12%5D@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`
+   - **Environment:** 上と同じでよい（Production 必須。Preview / Development は任意）。
+   - **Save** をクリックする。
+
+6. **反映のしかた**
+   - 環境変数を追加・変更したあとは、**再デプロイ**しないと本番に反映されない。
+   - **Deployments** タブ → 最新のデプロイの「⋯」メニュー → **Redeploy** を選ぶ。
+   - または、Git にプッシュすると新しいデプロイが走り、そのときに新しい環境変数が使われる。
+
+#### まとめ（何をどこに入れるか）
+
+| 名前 | 値（例） | 説明 |
+|------|----------|------|
+| `DATABASE_URL` | ホストが `...pooler.supabase.com` でポートが **6543**、末尾が `?pgbouncer=true` の URL | アプリ実行時・Vercel のランタイムで使用。接続プール経由。 |
+| `DIRECT_URL` | 同じホストでポートが **5432** の URL（`?pgbouncer=true` なし） | ビルド時（Prisma がスキーマを読むとき）に使用。 |
+
+- パスワードに `[ ]` が含まれる場合は、URL 内では `%5B` / `%5D` にエンコードする（ローカルの `.env` と同じ値でよい）。
+- **重要:** アプリの動作には `DATABASE_URL`（6543）が必須。`DIRECT_URL` はビルドを通すために必要。
+
+### 3.3 再デプロイと確認
+
+1. **環境変数を入れたあと**  
+   **Deployments** タブを開く → いちばん上にあるデプロイの **「⋯」（縦三点メニュー）** をクリック → **「Redeploy」** を選ぶ。  
+   「Redeploy」で **Deploy** を押すと、新しい環境変数を使ってビルド・デプロイがやり直される。
+
+2. **ビルドが成功したか**  
+   同じ Deployments の一覧で、対象のデプロイの **Status** が **Ready**（緑）になっていれば成功。  
+   失敗している場合は **「View Function Logs」** やビルドログでエラー内容を確認する。
+
+3. **アプリが動いているか**  
+   **「Visit」** で本番URLを開く。ログイン画面が出て、Supabase の members で登録したユーザー（例: admin）でログインできれば、DB 接続も問題ない。
+
+4. **カスタムドメインを使う場合**  
+   **Settings** → **Domains** で、自分のドメイン（例: `kokoroe.example.com`）を追加し、表示された DNS 設定をドメイン側で行う。
 
 ---
 
