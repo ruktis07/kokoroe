@@ -173,6 +173,7 @@ export default function MembersTab() {
       if (response.ok) {
         alert(`${name}さんのパスワードをリセットしました\n新しいパスワード: ${newPassword}`)
         cancelResetPassword()
+        loadMembers()
       } else {
         const data = await response.json()
         alert(data.error || 'エラーが発生しました')
