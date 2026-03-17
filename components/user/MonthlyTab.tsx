@@ -1,10 +1,18 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { downloadCsv } from '@/lib/csv'
 
 Chart.register(...registerables)
+
+const PERIOD_RANGE_OPTIONS = [
+  { value: '3', label: '直近3ヶ月' },
+  { value: '6', label: '直近6ヶ月' },
+  { value: '12', label: '直近12ヶ月' },
+  { value: 'all', label: '全期間' },
+] as const
+type PeriodRangeValue = (typeof PERIOD_RANGE_OPTIONS)[number]['value']
 
 interface MonthlyData {
   year_month: string
@@ -23,10 +31,23 @@ interface MonthlyTabProps {
 export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
   const [periods, setPeriods] = useState<{ year_month: string }[]>([])
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
+  const [periodRange, setPeriodRange] = useState<PeriodRangeValue>('3')
+  const [emptyMessage, setEmptyMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedMajor, setSelectedMajor] = useState<string>('')
   const [selectedMinorItemId, setSelectedMinorItemId] = useState<number | null>(null)
   const [showDataLog, setShowDataLog] = useState(false)
+
+  // 表示期間で絞り込み（APIは全期間返す。デフォルト直近3ヶ月、選択で変更可能）
+  const filteredPeriods = useMemo(() => {
+    if (periodRange === 'all') return periods
+    const n = Number(periodRange)
+    return periods.slice(0, n)
+  }, [periods, periodRange])
+  const filteredMonthlyData = useMemo(() => {
+    const set = new Set(filteredPeriods.map(p => p.year_month))
+    return monthlyData.filter(d => set.has(d.year_month))
+  }, [monthlyData, filteredPeriods])
   const avgChartRef = useRef<HTMLCanvasElement>(null)
   const itemsChartRef = useRef<HTMLCanvasElement>(null)
   const itemsChartSectionRef = useRef<HTMLDivElement>(null)
@@ -57,11 +78,11 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
     setSelectedMinorItemId(prev => (prev === null ? itemsList[0].id : prev))
   }, [monthlyData])
 
-  // グラフ描画（フックは常に同じ順で呼ぶため、早期 return の前に配置）
+  // グラフ描画（表示期間で絞り込んだデータを使用）
   useEffect(() => {
-    if (periods.length === 0 || monthlyData.length === 0) return
+    if (filteredPeriods.length === 0 || filteredMonthlyData.length === 0) return
     const itemMap: Record<number, { id: number; major: string; minor: string; othersMonths: Record<string, string>; selfMonths: Record<string, string> }> = {}
-    monthlyData.forEach(data => {
+    filteredMonthlyData.forEach(data => {
       if (!itemMap[data.item_id]) {
         itemMap[data.item_id] = {
           id: data.item_id,
@@ -75,7 +96,7 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
       if (data.self_score !== null) itemMap[data.item_id].selfMonths[data.year_month] = data.self_score.toFixed(1)
     })
     const items = Object.values(itemMap)
-    const order = [...periods].reverse()
+    const order = [...filteredPeriods].reverse()
     const labels = order.map(p => p.year_month)
     const othersAvg = order.map(p => {
       const withData = items.filter(item => item.othersMonths[p.year_month])
@@ -151,7 +172,7 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
       avgChartInstance.current?.destroy()
       itemsChartInstance.current?.destroy()
     }
-  }, [periods, monthlyData, selectedMinorItemId])
+  }, [filteredPeriods, filteredMonthlyData, selectedMinorItemId])
 
   async function loadMonthlyData() {
     try {
@@ -162,6 +183,7 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
         const data = await response.json()
         setPeriods(data.periods || [])
         setMonthlyData(data.monthlyData || [])
+        setEmptyMessage(data.message ?? null)
       }
     } catch (error) {
       console.error('Failed to load monthly data:', error)
@@ -203,13 +225,13 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
           <i className="fas fa-calendar-alt mr-2"></i>あなたの評価推移
         </h2>
         <p className="text-gray-400 text-center py-8 text-sm sm:text-base">
-          <i className="fas fa-info-circle mr-2"></i>まだ評価データがありません
+          <i className="fas fa-info-circle mr-2"></i>{emptyMessage || 'まだ評価データがありません'}
         </p>
       </div>
     )
   }
 
-  // データを整形
+  // データを整形（表示期間で絞り込んだデータを使用）
   const itemMap: Record<number, {
     id: number
     major: string
@@ -218,7 +240,7 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
     selfMonths: Record<string, string>
   }> = {}
 
-  monthlyData.forEach(data => {
+  filteredMonthlyData.forEach(data => {
     if (!itemMap[data.item_id]) {
       itemMap[data.item_id] = {
         id: data.item_id,
@@ -239,7 +261,7 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
   const items = Object.values(itemMap)
 
   // 総合平均（月別）・前月比
-  const periodOrder = [...periods].reverse()
+  const periodOrder = [...filteredPeriods].reverse()
   const othersAvgByPeriod = periodOrder.map(p => {
     const withData = items.filter(item => item.othersMonths[p.year_month])
     if (withData.length === 0) return null
@@ -259,15 +281,29 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
 
   return (
     <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-      <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">
-        <i className="fas fa-calendar-alt mr-2"></i>あなたの評価推移
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 sm:mb-4">
+        <h2 className="text-lg sm:text-xl font-bold">
+          <i className="fas fa-calendar-alt mr-2"></i>あなたの評価推移
+        </h2>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">表示期間:</label>
+          <select
+            value={periodRange}
+            onChange={(e) => setPeriodRange(e.target.value as PeriodRangeValue)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+          >
+            {PERIOD_RANGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <p className="text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6">
         <i className="fas fa-info-circle mr-2"></i>過去の評価結果と比較できます
       </p>
 
       {/* 前月比サマリー */}
-      {periods.length >= 2 && (othersDiff != null || selfDiff != null) && (
+      {filteredPeriods.length >= 2 && (othersDiff != null || selfDiff != null) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div className="rounded-xl border-2 border-gray-200 bg-gray-50 p-4 flex items-center justify-between">
             <span className="text-gray-700 font-medium">他者評価の推移</span>
@@ -412,10 +448,10 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
                 <div className="text-xs text-gray-600 mt-0.5">{item.minor}</div>
               </div>
               <div className="divide-y divide-gray-100">
-                {periods.map((p, colIndex) => {
+                {filteredPeriods.map((p, colIndex) => {
                   const othersScore = item.othersMonths[p.year_month] || '-'
                   const selfScore = item.selfMonths[p.year_month] || '-'
-                  const prevPeriod = periods[colIndex + 1]
+                  const prevPeriod = filteredPeriods[colIndex + 1]
                   const prevOthers = prevPeriod ? item.othersMonths[prevPeriod.year_month] : null
                   let trendIcon = null
                   if (othersScore !== '-' && prevOthers) {
@@ -456,7 +492,7 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
                 <th className="border border-gray-300 bg-gray-700 text-white px-2 sm:px-4 py-2 sm:py-3 text-left sticky left-0 z-10 text-xs sm:text-base whitespace-nowrap" style={{ minWidth: '8em' }}>
                   評価項目
                 </th>
-                {periods.map((p) => (
+                {filteredPeriods.map((p) => (
                   <th key={p.year_month} className="border border-gray-300 bg-blue-700 text-white px-2 sm:px-4 py-2 sm:py-3 text-center min-w-[72px] sm:min-w-[120px] text-xs sm:text-base">
                     {p.year_month}
                   </th>
@@ -470,10 +506,10 @@ export default function MonthlyTab({ isAdmin = false }: MonthlyTabProps) {
                     <div className="result-major-category">{item.major}</div>
                     <div className="result-minor-category">{item.minor}</div>
                   </td>
-                  {periods.map((p, colIndex) => {
+                  {filteredPeriods.map((p, colIndex) => {
                     const othersScore = item.othersMonths[p.year_month] || '-'
                     const selfScore = item.selfMonths[p.year_month] || '-'
-                    const prevPeriod = periods[colIndex + 1]
+                    const prevPeriod = filteredPeriods[colIndex + 1]
                     const prevOthers = prevPeriod ? item.othersMonths[prevPeriod.year_month] : null
                     let trendIcon = null
                     if (othersScore !== '-' && prevOthers) {

@@ -13,6 +13,7 @@ export async function GET() {
         name: true,
         team: true,
         role: true,
+        passwordResetRequestedAt: true,
         createdAt: true,
       },
       orderBy: [

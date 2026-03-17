@@ -1,0 +1,246 @@
+================================================================================
+  Vercel + Supabase でアプリを運用するためのセットアップガイド
+  （Next.js + Prisma を使う構成）
+================================================================================
+
+  誰が見ても手順を追いやすいように、番号と見出しで整理しています。
+  同じ構成で今後アプリを作る際の参照用です。
+
+================================================================================
+1. この構成の説明
+================================================================================
+
+  ・Vercel    … アプリ（Next.js）のホスティング。API もここで動く。
+  ・Supabase  … PostgreSQL データベース。Vercel からここに接続する。
+  ・Prisma    … DB アクセス用ライブラリ。スキーマと接続設定が必要。
+
+  接続の流れ:
+    ユーザー → Vercel（Next.js） → Supabase（PostgreSQL）
+
+  必要な環境変数（Vercel とローカル .env の両方）:
+    ・DATABASE_URL  … アプリ実行用。Supabase の場合は「ポート 6543」+ 「?pgbouncer=true」
+    ・DIRECT_URL   … マイグレーション・ビルド用。Supabase の場合は「ポート 5432」
+
+================================================================================
+2. 必要なもの（事前準備）
+================================================================================
+
+  ・Supabase のアカウント（https://supabase.com）
+  ・Vercel のアカウント（https://vercel.com）
+  ・GitHub などにコードをプッシュ済みのリポジトリ
+  ・Next.js + Prisma のプロジェクト（package.json の build に prisma generate を含める）
+
+================================================================================
+3. Supabase の準備
+================================================================================
+
+--- 3.1 プロジェクト作成 ---
+
+  (1) https://supabase.com にログインする。
+  (2) 「New project」でプロジェクトを作成する。
+  (3) リージョンと「Database password」を設定する。
+      ※このパスワードは後で接続文字列に使うので、メモするか安全に保管する。
+  (4) 作成完了まで待つ。
+
+--- 3.2 接続文字列を取得する（ここが重要） ---
+
+  (1) Supabase ダッシュボードで左メニュー「Project Settings」（歯車）→「Database」を開く。
+  (2) 「Connection string」の「URI」タブを選ぶ。
+  (3) 「Use connection pooling」をオンにする。
+  (4) Session mode（ポート 5432）の URI を表示する。
+      例: postgresql://postgres.xxxxxxxxxx:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
+  (5) [YOUR-PASSWORD] の部分を、プロジェクト作成時に設定した「Database password」に置き換える。
+      ※パスワードに @ # [ ] などが含まれる場合は URL エンコードする。
+        例: [  → %5B    ]  → %5D
+  (6) この「5432」の URI を DIRECT_URL 用として控える（またはコピー）。
+
+  (7) 同じ URI の「5432」を「6543」に変え、末尾に ?pgbouncer=true を付ける。
+      例: postgresql://postgres.xxxxxxxxxx:パスワード@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+  (8) この「6543」の URI を DATABASE_URL 用として控える（またはコピー）。
+
+  まとめ:
+    ・DATABASE_URL  = ポート 6543 + 末尾 ?pgbouncer=true
+    ・DIRECT_URL    = ポート 5432（?pgbouncer=true は付けない）
+
+--- 3.3 パスワードが分からない・認証エラーになる場合 ---
+
+  (1) Supabase の「Project Settings」→「Database」を開く。
+  (2) 「Reset database password」で新しいパスワードを設定する。
+  (3) 英数字だけのパスワードにすると、URL エンコード不要で確実。
+  (4) 上記 3.2 の (5)(6)(7)(8) で、新しいパスワードを使って URI を組み直す。
+
+--- 3.4 （任意）Prisma 専用ユーザーを作る ---
+
+  デフォルトの postgres ユーザーでも接続できる。
+  専用ユーザーにしたい場合は、Supabase の「SQL Editor」で次を実行する（パスワードは任意の強力なものに変更）。
+
+  CREATE USER "prisma" WITH PASSWORD 'your_secure_password' BYPASSRLS CREATEDB;
+  GRANT "prisma" TO "postgres";
+  GRANT USAGE ON SCHEMA public TO prisma;
+  GRANT CREATE ON SCHEMA public TO prisma;
+  GRANT ALL ON ALL TABLES IN SCHEMA public TO prisma;
+  GRANT ALL ON ALL ROUTINES IN SCHEMA public TO prisma;
+  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO prisma;
+  ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO prisma;
+  ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON ROUTINES TO prisma;
+  ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO prisma;
+
+  その場合、接続文字列のユーザー名は postgres.xxxx ではなく prisma.xxxx にする。
+
+================================================================================
+4. アプリ側の設定（Prisma・環境変数）
+================================================================================
+
+--- 4.1 Prisma の schema.prisma ---
+
+  datasource に directUrl を追加する。
+
+  datasource db {
+    provider  = "postgresql"
+    url       = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
+  }
+
+--- 4.2 環境変数（.env と Vercel の両方） ---
+
+  ローカル .env の例（本番で Supabase を使う場合）:
+
+    DATABASE_URL="postgresql://postgres.プロジェクトREF:パスワード@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+    DIRECT_URL="postgresql://postgres.プロジェクトREF:パスワード@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+
+  ローカルで従来の PostgreSQL を使う場合（開発時）:
+
+    DATABASE_URL="postgresql://user:password@localhost:5432/DB名"
+    DIRECT_URL="postgresql://user:password@localhost:5432/DB名"
+    （同じ URL を両方に書く）
+
+--- 4.3 package.json の build ---
+
+  "build": "prisma generate && next build"
+  のように、prisma generate を先に実行する。
+
+--- 4.4 next.config.js（Vercel で Prisma が動くように） ---
+
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+  }
+
+================================================================================
+5. Supabase にテーブルを作る
+================================================================================
+
+  (1) プロジェクトに、テーブル定義の SQL ファイル（例: supabase/init_schema.sql）を用意する。
+  (2) Supabase の「SQL Editor」を開く。
+  (3) その SQL の内容をすべてコピーして貼り付け、「Run」で実行する。
+  (4) 「Table Editor」でテーブルができているか確認する。
+
+  既存アプリから Prisma でマイグレーションしている場合は、
+  ローカルで .env を Supabase 向けにしたうえで:
+    npx prisma db push
+  または
+    npx prisma migrate deploy
+  でもよい。
+
+================================================================================
+6. 本番用データを入れる（必要な場合）
+================================================================================
+
+  ユーザーやマスタデータだけ本番に移したい場合の例:
+
+  (1) ローカルで .env を「ローカル DB」向けにする。
+  (2) npm run export-for-production など、データを SQL で出力するスクリプトを実行する。
+  (3) 出力された SQL を Supabase の「SQL Editor」に貼り付けて実行する。
+
+  ※採点結果などは含めず、ユーザー・項目などだけにすることが多い。
+
+================================================================================
+7. Vercel の準備
+================================================================================
+
+--- 7.1 プロジェクトをインポート ---
+
+  (1) https://vercel.com にログインする。
+  (2) 「Add New」→「Project」を選ぶ。
+  (3) GitHub などからリポジトリを選び「Import」する。
+  (4) Framework は Next.js のまま。Root Directory は空のまま。
+  (5) いったん「Deploy」で進めてよい（後で環境変数を入れて Redeploy する）。
+
+--- 7.2 環境変数を登録する ---
+
+  (1) Vercel のプロジェクトで「Settings」→「Environment Variables」を開く。
+  (2) 以下を追加する。
+
+      Name:   DATABASE_URL
+      Value:  3.2 で作った「6543」の URI（?pgbouncer=true 付き）
+      Environment: Production（必要に応じて Preview / Development も）
+
+      Name:   DIRECT_URL
+      Value:  3.2 で作った「5432」の URI
+      Environment: 上に同じ
+
+  (3) Value は前後にスペースや改行を入れない。パスワードは正しくエンコードする。
+  (4) 「Save」したあと、必ず「Deployments」から「Redeploy」する（環境変数は再デプロイで反映される）。
+
+--- 7.3 デプロイ後の確認 ---
+
+  (1) デプロイが「Ready」になったら、ブラウザで次の URL を開く。
+      https://あなたのアプリ.vercel.app/api/health
+  (2) {"ok":true} と表示されれば、Vercel から Supabase への接続は成功。
+  (3) {"ok":false,"error":"..."} のときは、error の内容を確認する（多くは認証まわり）。
+
+================================================================================
+8. トラブルシューティング
+================================================================================
+
+--- 8.1 認証エラー（Authentication failed / credentials are not valid） ---
+
+  ・Vercel の DATABASE_URL / DIRECT_URL の「パスワード」が、
+    Supabase の「Database password」と一致しているか確認する。
+  ・Supabase の「Reset database password」で新しいパスワードにし、
+    そのパスワードで Vercel の環境変数を書き直して Redeploy する。
+  ・パスワードに [ ] @ # などが含まれる場合は、URL エンコード（%5B %5D など）する。
+  ・Value の前後にスペースや引用符が入っていないか確認する。
+
+--- 8.2 prepared statement does not exist ---
+
+  ・DATABASE_URL が「ポート 6543」で、末尾に ?pgbouncer=true が付いているか確認する。
+
+--- 8.3 ビルドで Prisma が見つからない ---
+
+  ・package.json の build に prisma generate が含まれているか確認する。
+  ・next.config.js に serverComponentsExternalPackages で @prisma/client, prisma を指定する。
+
+--- 8.4 ログインできない・データが表示されない ---
+
+  ・Supabase の「Table Editor」で、members など必要なテーブルにデータが入っているか確認する。
+  ・ブラウザの F12 → Network で、失敗している API（500 など）の Response を確認する。
+  ・/api/health が ok:true かどうかで、DB 接続だけ先に切り分ける。
+
+================================================================================
+9. ローカル開発の切り替え
+================================================================================
+
+  ・ローカルで従来の PostgreSQL を使うときは、.env の DATABASE_URL と DIRECT_URL を
+    同じ「ローカル用の接続文字列」にすると、今まで通り動く。
+  ・本番デプロイ用に Supabase を使うときは、.env を Supabase 用の 2 本に差し替える。
+  ・Vercel では常に環境変数で DATABASE_URL / DIRECT_URL を設定するため、
+    ローカルの .env を変更しても Vercel には影響しない。
+
+================================================================================
+10. チェックリスト（一覧）
+================================================================================
+
+  □ Supabase でプロジェクト作成
+  □ Supabase の Database で接続文字列（5432 と 6543）を取得し、パスワードを置換
+  □ Prisma の schema に directUrl を追加
+  □ package.json の build に prisma generate を追加
+  □ next.config.js に serverComponentsExternalPackages を追加（任意だが推奨）
+  □ Supabase の SQL Editor でテーブル作成用 SQL を実行
+  □ 必要なら本番用データの SQL を実行
+  □ Vercel でリポジトリをインポート
+  □ Vercel の Environment Variables に DATABASE_URL（6543 + ?pgbouncer=true）と DIRECT_URL（5432）を登録
+  □ Redeploy して /api/health が {"ok":true} になるか確認
+
+================================================================================
+  以上
+================================================================================

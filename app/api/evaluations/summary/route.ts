@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import { getAdjustedYearMonths } from '@/lib/adjusted-year-months'
@@ -9,13 +8,19 @@ export async function GET() {
     const currentUser = await requireAuth()
 
     const adjustedMonths = await getAdjustedYearMonths()
-    const useAdjustedOnly = adjustedMonths.length > 0
+    // チーム間調整を実行した月が1件もない場合は、利用者に結果を表示しない
+    if (adjustedMonths.length === 0) {
+      return NextResponse.json({
+        summary: [],
+        message: '表示できる集計結果がありません。管理者が採点調整（チーム間調整）を実行すると表示されます。',
+      })
+    }
 
     const items = await prisma.evaluationItem.findMany({
       orderBy: { displayOrder: 'asc' },
     })
 
-    if (useAdjustedOnly) {
+    {
       const myYearMonths = await prisma.evaluation.findMany({
         where: {
           evaluatedId: currentUser.id,
@@ -95,73 +100,6 @@ export async function GET() {
 
       return NextResponse.json({ summary, year_month: targetYearMonth })
     }
-
-    // 調整済みが1件もない場合は従来どおり全期間で集計（テストデータなどが表示される）
-    const othersScores = await prisma.evaluation.groupBy({
-      by: ['itemId'],
-      where: {
-        evaluatedId: currentUser.id,
-        evaluatorId: { not: currentUser.id },
-      },
-      _avg: { score: true },
-      _count: { score: true },
-    })
-
-    const selfScores = await prisma.evaluation.groupBy({
-      by: ['itemId'],
-      where: {
-        evaluatedId: currentUser.id,
-        evaluatorId: currentUser.id,
-      },
-      _avg: { score: true },
-    })
-
-    const teamMembers = await prisma.member.findMany({
-      where: { team: currentUser.team, role: 'user' },
-    })
-    const teamMemberIds = teamMembers.map(m => m.id)
-
-    const teamScores = teamMemberIds.length > 0
-      ? await prisma.$queryRaw<{ evaluated_id: number; item_id: number; avg_score: number }[]>`
-          SELECT evaluated_id AS evaluated_id, item_id AS item_id, AVG(score)::float AS avg_score
-          FROM evaluations
-          WHERE evaluated_id IN (${Prisma.join(teamMemberIds)})
-            AND evaluator_id != evaluated_id
-          GROUP BY evaluated_id, item_id
-        `
-      : []
-
-    const selfScoreMap = new Map(selfScores.map(s => [s.itemId, s._avg.score]))
-
-    const teamScoreMap = new Map<string, number[]>()
-    teamScores.forEach(ts => {
-      const key = `${ts.item_id}`
-      if (!teamScoreMap.has(key)) teamScoreMap.set(key, [])
-      teamScoreMap.get(key)!.push(ts.avg_score ?? 0)
-    })
-
-    const summary = items.map(item => {
-      const othersData = othersScores.find(s => s.itemId === item.id)
-      const othersAvg = othersData?._avg.score || null
-      const selfScore = selfScoreMap.get(item.id) || null
-      const teamScoresForItem = teamScoreMap.get(item.id.toString()) || []
-      const teamAvg =
-        teamScoresForItem.length > 0
-          ? teamScoresForItem.reduce((a, b) => a + b, 0) / teamScoresForItem.length
-          : null
-
-      return {
-        item_id: item.id,
-        major_category: item.majorCategory,
-        minor_category: item.minorCategory,
-        others_avg_score: othersAvg,
-        self_score: selfScore,
-        count: othersData?._count.score || 0,
-        team_avg: teamAvg,
-      }
-    })
-
-    return NextResponse.json({ summary, year_month: null })
   } catch (error: any) {
     if (error.message === '認証が必要です') {
       return NextResponse.json(

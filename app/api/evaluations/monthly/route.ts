@@ -8,6 +8,14 @@ export async function GET() {
     const currentUser = await requireAuth()
 
     const adjustedSet = new Set(await getAdjustedYearMonths())
+    // チーム間調整を実行した月が1件もない場合は、利用者に月次結果を表示しない
+    if (adjustedSet.size === 0) {
+      return NextResponse.json({
+        periods: [],
+        monthlyData: [],
+        message: '表示できる推移データがありません。管理者が採点調整（チーム間調整）を実行すると表示されます。',
+      })
+    }
 
     // 利用可能な年月一覧を取得（自分が評価された月）
     const periods = await prisma.evaluation.findMany({

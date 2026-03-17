@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (newPassword.length < 4) {
+    if (newPassword.length < 3) {
       return NextResponse.json(
-        { error: '新しいパスワードは4文字以上で設定してください' },
+        { error: '新しいパスワードは3文字以上で設定してください' },
         { status: 400 }
       )
     }

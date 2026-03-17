@@ -153,20 +153,6 @@ export default function AdjustmentsTab() {
     }
   }
 
-  // 期間の終了日の翌日を過ぎた年月は、未調整ならチーム間調整を1件ずつ自動実行（その月の結果は調整完了まで利用者に表示されない）
-  const adjustedYearMonthsKey = [...adjustedYearMonths].sort().join(',')
-  useEffect(() => {
-    if (loading || periods.length === 0) return
-    const today = new Date().toISOString().slice(0, 10)
-    const due = periods.find(
-      p =>
-        addOneDay(p.end_date) <= today &&
-        !adjustedYearMonths.has(p.year_month) &&
-        !normalizedForRef.current.has(p.year_month)
-    )
-    if (due) runNormalizeTeamScores(due.year_month, true)
-  }, [loading, periods.length, adjustedYearMonthsKey])
-
   async function handleNormalizeTeamScores() {
     if (yearMonths.length === 0) {
       alert('評価データがありません。シードを実行するか、ユーザーに評価を入力してもらってください。')

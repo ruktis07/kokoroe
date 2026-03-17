@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS members (
   team CHAR(1),
   role TEXT NOT NULL DEFAULT 'user',
   password TEXT,
+  password_reset_requested_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

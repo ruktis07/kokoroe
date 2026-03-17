@@ -72,7 +72,7 @@ export default function SettingsTab() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
-              minLength={4}
+              minLength={3}
               className="form-input"
             />
           </div>
@@ -83,7 +83,7 @@ export default function SettingsTab() {
               value={newPasswordConfirm}
               onChange={(e) => setNewPasswordConfirm(e.target.value)}
               required
-              minLength={4}
+              minLength={3}
               className="form-input"
             />
           </div>

@@ -8,6 +8,7 @@ interface Member {
   name: string
   team: string | null
   role: string
+  passwordResetRequestedAt: string | null
 }
 
 export default function MembersTab() {
@@ -18,6 +19,8 @@ export default function MembersTab() {
   const [newTeam, setNewTeam] = useState('A')
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<{ id: number; name: string } | null>(null)
+  const [resetPasswordValue, setResetPasswordValue] = useState('')
 
   const teams = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
@@ -142,10 +145,22 @@ export default function MembersTab() {
     }
   }
 
-  async function handleResetPassword(id: number, name: string) {
-    const newPassword = prompt(`${name}さんの新しいパスワードを入力してください（4文字以上）`)
-    if (!newPassword || newPassword.length < 4) {
-      alert('パスワードは4文字以上で設定してください')
+  function startResetPassword(id: number, name: string) {
+    setResetPasswordTarget({ id, name })
+    setResetPasswordValue('')
+  }
+
+  function cancelResetPassword() {
+    setResetPasswordTarget(null)
+    setResetPasswordValue('')
+  }
+
+  async function submitResetPassword() {
+    if (!resetPasswordTarget) return
+    const { id, name } = resetPasswordTarget
+    const newPassword = resetPasswordValue.trim()
+    if (newPassword.length < 3) {
+      alert('パスワードは3文字以上で設定してください')
       return
     }
     try {
@@ -157,6 +172,7 @@ export default function MembersTab() {
       })
       if (response.ok) {
         alert(`${name}さんのパスワードをリセットしました\n新しいパスワード: ${newPassword}`)
+        cancelResetPassword()
       } else {
         const data = await response.json()
         alert(data.error || 'エラーが発生しました')
@@ -262,6 +278,14 @@ export default function MembersTab() {
                       <>
                         <div className="member-name flex items-center space-x-2">
                           <span>{member.name}</span>
+                          {member.passwordResetRequestedAt && (
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800"
+                              title="パスワードリセット依頼あり"
+                            >
+                              <i className="fas fa-key mr-1"></i>リセット依頼
+                            </span>
+                          )}
                           {member.role !== 'admin' && (
                             <button
                               onClick={() => startEditName(member)}
@@ -277,7 +301,7 @@ export default function MembersTab() {
                     )}
                   </div>
                   {member.role !== 'admin' && editingMemberId !== member.id ? (
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 flex-wrap gap-1">
                       <select
                         defaultValue={member.team || 'A'}
                         onChange={(e) => handleUpdateTeam(member.id, member.name, e.target.value)}
@@ -287,14 +311,47 @@ export default function MembersTab() {
                           <option key={t} value={t}>チーム{t}</option>
                         ))}
                       </select>
+                      {resetPasswordTarget?.id === member.id ? (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <input
+                            type="text"
+                            value={resetPasswordValue}
+                            onChange={(e) => setResetPasswordValue(e.target.value)}
+                            placeholder="新パスワード（3文字以上）"
+                            className="px-2 py-1 border rounded text-sm w-32 focus:ring-2 focus:ring-orange-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') submitResetPassword()
+                              if (e.key === 'Escape') cancelResetPassword()
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={submitResetPassword}
+                            className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
+                          >
+                            設定
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelResetPassword}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
+                          >
+                            キャンセル
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startResetPassword(member.id, member.name)}
+                          className="text-orange-600 hover:text-orange-700"
+                          title="パスワードリセット"
+                        >
+                          <i className="fas fa-key"></i>
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleResetPassword(member.id, member.name)}
-                        className="text-orange-600 hover:text-orange-700"
-                        title="パスワードリセット"
-                      >
-                        <i className="fas fa-key"></i>
-                      </button>
-                      <button
+                        type="button"
                         onClick={() => handleDeleteMember(member.id)}
                         className="text-red-500 hover:text-red-700"
                         title="削除"

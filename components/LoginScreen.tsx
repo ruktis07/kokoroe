@@ -19,6 +19,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotUsername, setForgotUsername] = useState('')
+  const [forgotMessage, setForgotMessage] = useState<string | null>(null)
+  const [forgotLoading, setForgotLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -46,6 +50,26 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       setError('ログインに失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setForgotMessage(null)
+    setForgotLoading(true)
+    try {
+      const response = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: forgotUsername.trim() }),
+      })
+      const data = await response.json()
+      setForgotMessage(data.message || '送信しました。管理者にパスワードリセットをお願いしてください。')
+      if (response.ok) setForgotUsername('')
+    } catch {
+      setForgotMessage('送信しました。管理者にパスワードリセットをお願いしてください。')
+    } finally {
+      setForgotLoading(false)
     }
   }
 
@@ -109,6 +133,57 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             )}
           </button>
         </form>
+
+        {!showForgotPassword ? (
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              パスワードを忘れた場合
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-700 mb-3">
+              ユーザー名を入力して送信すると、管理者がメンバー管理画面でパスワードリセット依頼として確認できます。
+            </p>
+            {forgotMessage && (
+              <p className="text-sm text-green-700 mb-3">{forgotMessage}</p>
+            )}
+            <form onSubmit={handleForgotPassword} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={forgotUsername}
+                onChange={(e) => setForgotUsername(e.target.value)}
+                placeholder="ユーザー名"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50"
+                >
+                  {forgotLoading ? '送信中...' : '送信'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false)
+                    setForgotMessage(null)
+                    setForgotUsername('')
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100"
+                >
+                  閉じる
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* <div className="mt-6 text-center text-sm text-gray-600">
           <p>管理者: admin / admin</p>

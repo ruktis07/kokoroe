@@ -16,18 +16,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (newPassword.length < 4) {
+    if (newPassword.length < 3) {
       return NextResponse.json(
-        { error: '新しいパスワードは4文字以上で設定してください' },
+        { error: '新しいパスワードは3文字以上で設定してください' },
         { status: 400 }
       )
     }
 
-    // パスワードをハッシュ化して更新
+    // パスワードをハッシュ化して更新し、リセット依頼フラグを解除
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await prisma.member.update({
       where: { id: memberId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, passwordResetRequestedAt: null },
     })
 
     return NextResponse.json({ success: true, message: 'パスワードをリセットしました' })
