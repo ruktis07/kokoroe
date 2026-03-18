@@ -155,7 +155,7 @@ export default function AdjustmentsTab() {
 
   async function handleNormalizeTeamScores() {
     if (yearMonths.length === 0) {
-      alert('評価データがありません。シードを実行するか、ユーザーに評価を入力してもらってください。')
+      alert('評価データがありません。')
       return
     }
     const defaultYm = selectedYearMonth || yearMonths[0]?.year_month || new Date().toISOString().slice(0, 7)
@@ -288,7 +288,7 @@ export default function AdjustmentsTab() {
       {yearMonths.length === 0 && !loading && (
         <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
           <i className="fas fa-exclamation-triangle mr-2"></i>
-          評価データがありません。シードを実行するか、ユーザーに評価を入力してもらってください。
+          評価データがありません。
         </div>
       )}
       <div className="flex items-center space-x-3 mb-4">
