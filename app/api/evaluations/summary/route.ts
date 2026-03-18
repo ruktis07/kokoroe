@@ -12,7 +12,7 @@ export async function GET() {
     if (adjustedMonths.length === 0) {
       return NextResponse.json({
         summary: [],
-        message: '表示できる集計結果がありません。管理者が採点調整（チーム間調整）を実行すると表示されます。',
+        message: '表示できる集計結果がありません。',
       })
     }
 

@@ -13,7 +13,7 @@ export async function GET() {
       return NextResponse.json({
         periods: [],
         monthlyData: [],
-        message: '表示できる推移データがありません。管理者が採点調整（チーム間調整）を実行すると表示されます。',
+        message: '表示できる推移データがありません。',
       })
     }
 
