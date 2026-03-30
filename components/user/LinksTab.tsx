@@ -3,7 +3,7 @@
 /** 利用者向けの外部リンク一覧（拡張しやすいよう配列化） */
 const EXTERNAL_LINKS = [
   {
-    label: '関連サイトを開く',
+    label: '満足度情報(JustDB)',
     href: 'https://mizutani-v.just-db.com/sites/view?folder=376&workspace=532',
   },
 ] as const
