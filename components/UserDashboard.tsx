@@ -5,6 +5,7 @@ import EvaluationTab from '@/components/user/EvaluationTab'
 import MyResultsTab from '@/components/user/MyResultsTab'
 import SummaryTab from '@/components/user/SummaryTab'
 import MonthlyTab from '@/components/user/MonthlyTab'
+import LinksTab from '@/components/user/LinksTab'
 import SettingsTab from '@/components/user/SettingsTab'
 
 interface User {
@@ -20,7 +21,7 @@ interface UserDashboardProps {
   onLogout: () => void
 }
 
-type Tab = 'evaluation' | 'my-results' | 'summary' | 'monthly' | 'settings'
+type Tab = 'evaluation' | 'my-results' | 'summary' | 'monthly' | 'links' | 'settings'
 
 export default function UserDashboard({ user, onLogout }: UserDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('evaluation')
@@ -106,6 +107,16 @@ export default function UserDashboard({ user, onLogout }: UserDashboardProps) {
               <i className="fas fa-calendar-alt mr-1 sm:mr-2"></i>月次
             </button>
             <button
+              onClick={() => setActiveTab('links')}
+              className={`px-3 sm:px-6 py-3 font-semibold whitespace-nowrap touch-manipulation min-h-[48px] border-b-2 -mb-px ${
+                activeTab === 'links'
+                  ? 'border-blue-500 text-blue-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <i className="fas fa-bookmark mr-1 sm:mr-2"></i>リンク集
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
               className={`px-3 sm:px-6 py-3 font-semibold whitespace-nowrap touch-manipulation min-h-[48px] border-b-2 -mb-px ${
                 activeTab === 'settings'
@@ -123,6 +134,7 @@ export default function UserDashboard({ user, onLogout }: UserDashboardProps) {
           {activeTab === 'my-results' && <MyResultsTab tableFlipped={tableFlipped} onTableFlippedChange={setTableFlipped} />}
           {activeTab === 'summary' && <SummaryTab isAdmin={user.role === 'admin'} />}
           {activeTab === 'monthly' && <MonthlyTab isAdmin={user.role === 'admin'} />}
+          {activeTab === 'links' && <LinksTab />}
           {activeTab === 'settings' && <SettingsTab />}
         </div>
       </div>
