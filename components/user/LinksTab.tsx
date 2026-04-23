@@ -4,7 +4,7 @@
 const EXTERNAL_LINKS = [
   {
     label: '満足度情報(JustDB)',
-    href: 'https://mizutani-v.just-db.com/sites/view?folder=376&workspace=532',
+    href: 'https://mizutani-v.just-db.com/sites/view?folder=378&workspace=565',
   },
 ] as const
 
