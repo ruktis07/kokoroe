@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import LoginScreen from '@/components/LoginScreen'
-import AdminDashboard from '@/components/AdminDashboard'
-import UserDashboard from '@/components/UserDashboard'
+import dynamic from 'next/dynamic'
+
+const LoginScreen = dynamic(() => import('@/components/LoginScreen'))
+const AdminDashboard = dynamic(() => import('@/components/AdminDashboard'))
+const UserDashboard = dynamic(() => import('@/components/UserDashboard'))
 
 interface User {
   id: number

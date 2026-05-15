@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import EvaluationTab from '@/components/user/EvaluationTab'
-import MyResultsTab from '@/components/user/MyResultsTab'
-import SummaryTab from '@/components/user/SummaryTab'
-import MonthlyTab from '@/components/user/MonthlyTab'
-import LinksTab from '@/components/user/LinksTab'
-import SettingsTab from '@/components/user/SettingsTab'
+import dynamic from 'next/dynamic'
+
+const EvaluationTab = dynamic(() => import('@/components/user/EvaluationTab'))
+const MyResultsTab = dynamic(() => import('@/components/user/MyResultsTab'))
+const SummaryTab = dynamic(() => import('@/components/user/SummaryTab'))
+const MonthlyTab = dynamic(() => import('@/components/user/MonthlyTab'))
+const LinksTab = dynamic(() => import('@/components/user/LinksTab'))
+const SettingsTab = dynamic(() => import('@/components/user/SettingsTab'))
 
 interface User {
   id: number

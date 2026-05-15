@@ -29,7 +29,14 @@ export async function POST(request: NextRequest) {
       evaluations
         .filter((ev: any) => {
           const { evaluated_id, item_id, score } = ev
-          return evaluated_id && item_id && score >= 1 && score <= 10
+          return (
+            evaluated_id &&
+            item_id &&
+            typeof score === 'number' &&
+            Number.isInteger(score) &&
+            score >= 1 &&
+            score <= 10
+          )
         })
         .map((ev: any) =>
           prisma.evaluation.upsert({

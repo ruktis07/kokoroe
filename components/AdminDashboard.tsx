@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import MembersTab from '@/components/admin/MembersTab'
-import ItemsTab from '@/components/admin/ItemsTab'
-import PeriodsTab from '@/components/admin/PeriodsTab'
-import AdjustmentsTab from '@/components/admin/AdjustmentsTab'
-import TabViewLogsTab from '@/components/admin/TabViewLogsTab'
+import dynamic from 'next/dynamic'
+
+const MembersTab = dynamic(() => import('@/components/admin/MembersTab'))
+const ItemsTab = dynamic(() => import('@/components/admin/ItemsTab'))
+const PeriodsTab = dynamic(() => import('@/components/admin/PeriodsTab'))
+const AdjustmentsTab = dynamic(() => import('@/components/admin/AdjustmentsTab'))
+const TabViewLogsTab = dynamic(() => import('@/components/admin/TabViewLogsTab'))
 
 interface User {
   id: number

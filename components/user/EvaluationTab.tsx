@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type KeyboardEvent } from 'react'
 
 interface Member {
   id: number
@@ -121,23 +121,29 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
     }
   }
 
-  function handleScoreChange(memberId: number, itemId: number, score: string) {
+  /** 小数点や e などを含まない 1～10 の整数文字列のみ反映 */
+  function handleScoreChange(memberId: number, itemId: number, raw: string) {
     const key = `${memberId}_${itemId}`
-    if (score && score.trim() !== '') {
-      const numScore = parseInt(score)
-      if (!isNaN(numScore)) {
-        setEvaluations(prev => ({
-          ...prev,
-          [key]: numScore,
-        }))
-      }
-    } else {
-      // 空の場合はキーを削除
+    const s = raw.trim()
+    if (s === '') {
       setEvaluations(prev => {
         const newEvals = { ...prev }
         delete newEvals[key]
         return newEvals
       })
+      return
+    }
+    if (!/^([1-9]|10)$/.test(s)) return
+    const numScore = parseInt(s, 10)
+    setEvaluations(prev => ({
+      ...prev,
+      [key]: numScore,
+    }))
+  }
+
+  function blockNonIntegerNumberKeys(e: KeyboardEvent<HTMLInputElement>) {
+    if (['e', 'E', '+', '-', '.', ','].includes(e.key)) {
+      e.preventDefault()
     }
   }
 
@@ -327,9 +333,12 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                           <div className="flex items-center gap-2">
                             <input
                               type="number"
+                              inputMode="numeric"
                               min={1}
                               max={10}
+                              step={1}
                               value={currentValue}
+                              onKeyDown={blockNonIntegerNumberKeys}
                               onChange={(e) => handleScoreChange(selectedMemberId, item.id, e.target.value)}
                               placeholder="-"
                               className="w-20 px-3 py-2.5 border-2 border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
@@ -384,9 +393,12 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                             <div className="flex items-center gap-2">
                               <input
                                 type="number"
+                                inputMode="numeric"
                                 min={1}
                                 max={10}
+                                step={1}
                                 value={currentValue}
+                                onKeyDown={blockNonIntegerNumberKeys}
                                 onChange={(e) => handleScoreChange(member.id, item.id, e.target.value)}
                                 placeholder="-"
                                 className="w-20 px-3 py-2.5 border-2 border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
@@ -453,9 +465,12 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                             <div className="flex flex-col items-center gap-0.5 sm:gap-1">
                               <input
                                 type="number"
+                                inputMode="numeric"
                                 min="1"
                                 max="10"
+                                step={1}
                                 value={currentValue}
+                                onKeyDown={blockNonIntegerNumberKeys}
                                 onChange={(e) => handleScoreChange(member.id, item.id, e.target.value)}
                                 placeholder="-"
                                 className="evaluation-input w-12 sm:w-16 px-1 sm:px-2 py-1.5 sm:py-2 border-2 border-gray-300 rounded text-center text-base sm:text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
@@ -503,9 +518,12 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                             <div className="flex flex-col items-center gap-0.5 sm:gap-1">
                               <input
                                 type="number"
+                                inputMode="numeric"
                                 min="1"
                                 max="10"
+                                step={1}
                                 value={currentValue}
+                                onKeyDown={blockNonIntegerNumberKeys}
                                 onChange={(e) => handleScoreChange(member.id, item.id, e.target.value)}
                                 placeholder="-"
                                 className="evaluation-input w-11 sm:w-14 px-1 py-1.5 sm:py-2 border-2 border-gray-300 rounded text-center text-sm sm:text-base font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation max-w-full"

@@ -102,8 +102,8 @@ export default function AdjustmentsTab() {
   }
 
   async function handleUpdateScore(id: number, newScore: number) {
-    if (newScore < 1 || newScore > 10) {
-      alert('点数は1～10の範囲で入力してください')
+    if (!Number.isInteger(newScore) || newScore < 1 || newScore > 10) {
+      alert('点数は1～10の整数で入力してください')
       return
     }
 
@@ -375,10 +375,22 @@ export default function AdjustmentsTab() {
                                   {evaluation ? (
                                     <input
                                       type="number"
+                                      inputMode="numeric"
                                       min="1"
                                       max="10"
+                                      step={1}
                                       value={evaluation.score}
-                                      onChange={(e) => handleUpdateScore(evaluation.id, parseInt(e.target.value))}
+                                      onKeyDown={(e) => {
+                                        if (['e', 'E', '+', '-', '.', ','].includes(e.key)) {
+                                          e.preventDefault()
+                                        }
+                                      }}
+                                      onChange={(e) => {
+                                        const v = e.target.value.trim()
+                                        if (v === '') return
+                                        if (!/^([1-9]|10)$/.test(v)) return
+                                        void handleUpdateScore(evaluation.id, parseInt(v, 10))
+                                      }}
                                       className="evaluation-input w-12 sm:w-16 px-1 sm:px-2 py-1.5 sm:py-2 border-2 border-gray-300 rounded text-center text-base sm:text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
                                     />
                                   ) : (

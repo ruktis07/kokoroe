@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (score < 1 || score > 10) {
+    if (score < 1 || score > 10 || typeof score !== 'number' || !Number.isInteger(score)) {
       return NextResponse.json(
-        { error: '評価は1～10の範囲で入力してください' },
+        { error: '評価は1～10の整数で入力してください' },
         { status: 400 }
       )
     }

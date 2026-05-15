@@ -12,9 +12,14 @@ export async function PUT(
     const id = parseInt(params.id)
     const { score } = await request.json()
 
-    if (score < 1 || score > 10) {
+    if (
+      typeof score !== 'number' ||
+      !Number.isInteger(score) ||
+      score < 1 ||
+      score > 10
+    ) {
       return NextResponse.json(
-        { error: '評価は1～10の範囲で入力してください' },
+        { error: '評価は1～10の整数で入力してください' },
         { status: 400 }
       )
     }
