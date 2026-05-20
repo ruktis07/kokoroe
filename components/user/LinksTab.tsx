@@ -3,11 +3,11 @@
 /** 利用者向けの外部リンク一覧（拡張しやすいよう配列化） */
 const EXTERNAL_LINKS = [
   {
-    label: '満足度情報(JustDB) - スマホ用',
+    label: 'お客様の声を社内に共有するプロジェクト(JustDB) - スマホ用',
     href: 'https://mizutani-v.just-db.com/sites/m-record-list?workspace=565&panel=1150',
   },
   {
-    label: '満足度情報(JustDB) - PC用',
+    label: 'お客様の声を社内に共有するプロジェクト(JustDB) - PC用',
     href: 'https://mizutani-v.just-db.com/sites/view?folder=378&workspace=565',
   },
 ] as const
