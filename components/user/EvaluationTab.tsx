@@ -40,6 +40,8 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [periodOpen, setPeriodOpen] = useState<boolean | null>(null)
   const [periodMessage, setPeriodMessage] = useState<string>('')
+  // 保存中フラグ（二重送信防止用）
+  const [isSaving, setIsSaving] = useState(false)
 
   // 大項目の一覧（表示順）
   const majorCategories = items.length
@@ -156,6 +158,8 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
   }
 
   async function saveAllEvaluations() {
+    if (isSaving) return
+
     const evaluationsToSave = []
     for (const member of teamMembers) {
       for (const item of items) {
@@ -176,6 +180,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
       return
     }
 
+    setIsSaving(true)
     try {
       const response = await fetch('/api/evaluations/bulk', {
         method: 'POST',
@@ -185,13 +190,15 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
       })
       if (response.ok) {
         alert(`${evaluationsToSave.length}件の評価を保存しました`)
-        loadData()
+        await loadData()
       } else {
         const data = await response.json()
         alert(data.error || 'エラーが発生しました')
       }
     } catch (error) {
       alert('エラーが発生しました')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -244,9 +251,19 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
           {teamMembers.length > 0 && (
             <button
               onClick={saveAllEvaluations}
-              className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base touch-manipulation min-h-[44px]"
+              disabled={isSaving}
+              aria-busy={isSaving}
+              className="bg-green-500 hover:bg-green-600 active:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base touch-manipulation min-h-[44px]"
             >
-              <i className="fas fa-save mr-1 sm:mr-2"></i>全て保存
+              {isSaving ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-1 sm:mr-2"></i>保存中…
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save mr-1 sm:mr-2"></i>全て保存
+                </>
+              )}
             </button>
           )}
         </div>
@@ -559,9 +576,19 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
             )}
             <button
               onClick={saveAllEvaluations}
-              className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3 rounded-lg text-sm sm:text-lg touch-manipulation min-h-[44px]"
+              disabled={isSaving}
+              aria-busy={isSaving}
+              className="bg-green-500 hover:bg-green-600 active:bg-green-700 disabled:bg-green-300 disabled:cursor-not-allowed text-white font-bold px-4 sm:px-8 py-2.5 sm:py-3 rounded-lg text-sm sm:text-lg touch-manipulation min-h-[44px]"
             >
-              <i className="fas fa-save mr-1 sm:mr-2"></i>全て保存
+              {isSaving ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-1 sm:mr-2"></i>保存中…
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-save mr-1 sm:mr-2"></i>全て保存
+                </>
+              )}
             </button>
           </div>
         </>

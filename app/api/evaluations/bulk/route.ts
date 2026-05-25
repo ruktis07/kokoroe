@@ -24,46 +24,53 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // トランザクションで一括保存
-    await prisma.$transaction(
-      evaluations
-        .filter((ev: any) => {
-          const { evaluated_id, item_id, score } = ev
-          return (
-            evaluated_id &&
-            item_id &&
-            typeof score === 'number' &&
-            Number.isInteger(score) &&
-            score >= 1 &&
-            score <= 10
-          )
-        })
-        .map((ev: any) =>
-          prisma.evaluation.upsert({
-            where: {
-              evaluator_evaluated_item_year_month: {
-                evaluatorId: currentUser.id,
-                evaluatedId: ev.evaluated_id,
-                itemId: ev.item_id,
-                yearMonth,
-              },
-            },
-            update: {
-              score: ev.score,
-              updatedAt: new Date(),
-            },
-            create: {
-              evaluatorId: currentUser.id,
-              evaluatedId: ev.evaluated_id,
-              itemId: ev.item_id,
-              score: ev.score,
-              yearMonth,
-            },
-          })
-        )
-    )
+    // バリデーション通過分のみ抽出
+    const valid = (evaluations as any[]).filter((ev) => {
+      const { evaluated_id, item_id, score } = ev
+      return (
+        evaluated_id &&
+        item_id &&
+        typeof score === 'number' &&
+        Number.isInteger(score) &&
+        score >= 1 &&
+        score <= 10
+      )
+    })
 
-    return NextResponse.json({ success: true, count: evaluations.length })
+    if (valid.length === 0) {
+      return NextResponse.json({ success: true, count: 0 })
+    }
+
+    // 配列をカラム別に展開して UNNEST 経由で一括 UPSERT
+    // → 旧実装は N件ぶん N往復していたのを、1往復で完結させる
+    const evaluatedIds = valid.map((ev) => Number(ev.evaluated_id))
+    const itemIds = valid.map((ev) => Number(ev.item_id))
+    const scores = valid.map((ev) => Number(ev.score))
+
+    await prisma.$executeRaw`
+      INSERT INTO evaluations (
+        evaluator_id, evaluated_id, item_id, score, year_month, created_at, updated_at
+      )
+      SELECT
+        ${currentUser.id}::int,
+        t.evaluated_id,
+        t.item_id,
+        t.score,
+        ${yearMonth}::varchar,
+        NOW(),
+        NOW()
+      FROM UNNEST(
+        ${evaluatedIds}::int[],
+        ${itemIds}::int[],
+        ${scores}::int[]
+      ) AS t(evaluated_id, item_id, score)
+      ON CONFLICT (evaluator_id, evaluated_id, item_id, year_month)
+      DO UPDATE SET
+        score = EXCLUDED.score,
+        updated_at = NOW()
+    `
+
+    return NextResponse.json({ success: true, count: valid.length })
   } catch (error: any) {
     if (error.message === '認証が必要です') {
       return NextResponse.json(
@@ -71,6 +78,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+    console.error('bulk evaluations error:', error)
     return NextResponse.json(
       { error: 'エラーが発生しました' },
       { status: 500 }
