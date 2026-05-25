@@ -26,6 +26,20 @@ export async function getOpenPeriod(): Promise<{
   endDate: string
 } | null> {
   await expirePastPeriods()
+  return getOpenPeriodFast()
+}
+
+/**
+ * expirePastPeriods をスキップした高速版。
+ * findFirst の条件に `endDate >= today` を含めているため、isActive を更新しなくても
+ * 期限切れの期間が誤って取得されることはない。
+ * ステータス確認のような頻繁に叩かれるエンドポイントでは UPDATE 往復を省くためにこちらを使う。
+ */
+export async function getOpenPeriodFast(): Promise<{
+  yearMonth: string
+  startDate: string
+  endDate: string
+} | null> {
   const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
 
   const period = await prisma.evaluationPeriod.findFirst({

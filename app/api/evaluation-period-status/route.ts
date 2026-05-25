@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
-import { getOpenPeriod } from '@/lib/evaluation-period'
+import { getOpenPeriodFast } from '@/lib/evaluation-period'
 
 export async function GET() {
   try {
     await requireAuth()
 
-    const period = await getOpenPeriod()
+    // 並列で「現在開いている期間」と「期間が1件でもあるか」を取得（旧実装は直列2〜3クエリ + UPDATE）
+    const [period, anyPeriodRow] = await Promise.all([
+      getOpenPeriodFast(),
+      prisma.evaluationPeriod.findFirst({ select: { id: true } }),
+    ])
 
     if (period) {
       return NextResponse.json({
@@ -21,11 +25,10 @@ export async function GET() {
       })
     }
 
-    const hasAnyPeriod = await prisma.evaluationPeriod.count() > 0
     return NextResponse.json({
       isOpen: false,
       period: null,
-      message: hasAnyPeriod
+      message: anyPeriodRow
         ? '現在は評価期間外です。入力可能な期間は管理者が設定した開始日〜終了日の間のみです。'
         : '評価期間が設定されていません。',
     })

@@ -34,6 +34,33 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     setVisitedTabs(prev => (prev.has(activeTab) ? prev : new Set(prev).add(activeTab)))
   }, [activeTab])
 
+  // 最初のタブが表示されたあと、裏で他のタブもマウントしてデータをプリフェッチ
+  useEffect(() => {
+    const prefetchAll = () => {
+      setVisitedTabs(prev => {
+        if (prev.size >= 5) return prev
+        const next = new Set(prev)
+        next.add('items')
+        next.add('periods')
+        next.add('adjustments')
+        next.add('summary-monthly')
+        return next
+      })
+    }
+    const ric = (window as any).requestIdleCallback as
+      | ((cb: () => void, opts?: { timeout: number }) => number)
+      | undefined
+    if (typeof ric === 'function') {
+      const id = ric(prefetchAll, { timeout: 2500 })
+      return () => {
+        const cic = (window as any).cancelIdleCallback as ((id: number) => void) | undefined
+        cic?.(id)
+      }
+    }
+    const timer = setTimeout(prefetchAll, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
   const renderTabPanel = (tab: Tab, content: ReactNode) => {
     if (!visitedTabs.has(tab)) return null
     return (
