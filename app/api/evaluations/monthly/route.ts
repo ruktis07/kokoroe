@@ -7,7 +7,57 @@ export async function GET() {
   try {
     const currentUser = await requireAuth()
 
-    const adjustedSet = new Set(await getAdjustedYearMonths())
+    // 互いに依存しないクエリを並列で取得（旧実装は直列 6 回往復 → 1 フェーズに集約）
+    const [adjustedMonthsList, periods, othersData, selfData, items, adjustments] = await Promise.all([
+      getAdjustedYearMonths(),
+      prisma.evaluation.findMany({
+        where: {
+          evaluatedId: currentUser.id,
+          yearMonth: { not: null },
+        },
+        select: {
+          yearMonth: true,
+        },
+        distinct: ['yearMonth'],
+        orderBy: {
+          yearMonth: 'desc',
+        },
+      }),
+      prisma.evaluation.groupBy({
+        by: ['yearMonth', 'itemId'],
+        where: {
+          evaluatedId: currentUser.id,
+          evaluatorId: { not: currentUser.id },
+          yearMonth: { not: null },
+        },
+        _avg: {
+          score: true,
+        },
+        _count: {
+          score: true,
+        },
+      }),
+      prisma.evaluation.groupBy({
+        by: ['yearMonth', 'itemId'],
+        where: {
+          evaluatedId: currentUser.id,
+          evaluatorId: currentUser.id,
+          yearMonth: { not: null },
+        },
+        _avg: {
+          score: true,
+        },
+      }),
+      prisma.evaluationItem.findMany({
+        orderBy: { displayOrder: 'asc' },
+      }),
+      // テーブル未作成・Prisma未再生成時に備えて単独で握りつぶす
+      prisma.othersScoreAdjustment
+        .findMany({ where: { memberId: currentUser.id } })
+        .catch(() => [] as { yearMonth: string; itemId: number; adjustedScore: number }[]),
+    ])
+
+    const adjustedSet = new Set(adjustedMonthsList)
     // チーム間調整を実行した月が1件もない場合は、利用者に月次結果を表示しない
     if (adjustedSet.size === 0) {
       return NextResponse.json({
@@ -16,21 +66,6 @@ export async function GET() {
         message: '表示できる推移データがありません。',
       })
     }
-
-    // 利用可能な年月一覧を取得（自分が評価された月）
-    const periods = await prisma.evaluation.findMany({
-      where: {
-        evaluatedId: currentUser.id,
-        yearMonth: { not: null },
-      },
-      select: {
-        yearMonth: true,
-      },
-      distinct: ['yearMonth'],
-      orderBy: {
-        yearMonth: 'desc',
-      },
-    })
 
     let yearMonths = periods.map(p => p.yearMonth).filter(Boolean) as string[]
 
@@ -44,57 +79,13 @@ export async function GET() {
       yearMonths = yearMonths.filter(ym => adjustedSet.has(ym))
     }
 
-    // 各年月の他者評価データを取得（自己評価を除外）
-    const othersData = await prisma.evaluation.groupBy({
-      by: ['yearMonth', 'itemId'],
-      where: {
-        evaluatedId: currentUser.id,
-        evaluatorId: { not: currentUser.id },
-        yearMonth: { not: null },
-      },
-      _avg: {
-        score: true,
-      },
-      _count: {
-        score: true,
-      },
-    })
-
-    // 各年月の自己評価データを取得
-    const selfData = await prisma.evaluation.groupBy({
-      by: ['yearMonth', 'itemId'],
-      where: {
-        evaluatedId: currentUser.id,
-        evaluatorId: currentUser.id,
-        yearMonth: { not: null },
-      },
-      _avg: {
-        score: true,
-      },
-    })
-
-    // 評価項目を取得
-    const items = await prisma.evaluationItem.findMany({
-      orderBy: { displayOrder: 'asc' },
-    })
-
     // データを整形
     const selfScoreMap = new Map(
       selfData.map(s => [`${s.yearMonth}_${s.itemId}`, s._avg.score])
     )
-
-    // 0.1単位の他者スコア調整を取得（失敗時は空で続行）
-    let adjustmentMap = new Map<string, number>()
-    try {
-      const adjustments = await prisma.othersScoreAdjustment.findMany({
-        where: { memberId: currentUser.id },
-      })
-      adjustmentMap = new Map(
-        adjustments.map(a => [`${a.yearMonth}_${a.itemId}`, a.adjustedScore])
-      )
-    } catch {
-      // テーブル未作成・Prisma未再生成時は調整なし
-    }
+    const adjustmentMap = new Map(
+      adjustments.map(a => [`${a.yearMonth}_${a.itemId}`, a.adjustedScore])
+    )
 
     let monthlyData = othersData.map(item => {
       const key = `${item.yearMonth}_${item.itemId}`

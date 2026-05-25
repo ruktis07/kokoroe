@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 
 const MembersTab = dynamic(() => import('@/components/admin/MembersTab'))
@@ -27,6 +27,25 @@ type Tab = 'members' | 'items' | 'periods' | 'adjustments' | 'summary-monthly'
 export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('members')
   const [loading, setLoading] = useState(false)
+  // 一度でも開いたタブを記録。display:none で隠すことで再フェッチを避ける（タブ移動時の読み込み待ち対策）。
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['members']))
+
+  useEffect(() => {
+    setVisitedTabs(prev => (prev.has(activeTab) ? prev : new Set(prev).add(activeTab)))
+  }, [activeTab])
+
+  const renderTabPanel = (tab: Tab, content: ReactNode) => {
+    if (!visitedTabs.has(tab)) return null
+    return (
+      <div
+        key={tab}
+        style={{ display: activeTab === tab ? undefined : 'none' }}
+        aria-hidden={activeTab !== tab}
+      >
+        {content}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -117,11 +136,11 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         </div>
 
         <div>
-          {activeTab === 'members' && <MembersTab />}
-          {activeTab === 'items' && <ItemsTab />}
-          {activeTab === 'periods' && <PeriodsTab />}
-          {activeTab === 'adjustments' && <AdjustmentsTab />}
-          {activeTab === 'summary-monthly' && <TabViewLogsTab />}
+          {renderTabPanel('members', <MembersTab />)}
+          {renderTabPanel('items', <ItemsTab />)}
+          {renderTabPanel('periods', <PeriodsTab />)}
+          {renderTabPanel('adjustments', <AdjustmentsTab />)}
+          {renderTabPanel('summary-monthly', <TabViewLogsTab />)}
         </div>
       </div>
     </div>

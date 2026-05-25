@@ -103,18 +103,13 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
 
       if (prevRes.ok) {
         const prevData = await prevRes.json()
-        console.log('前回評価データ:', prevData)
         const prevMap: Record<string, number> = {}
         if (prevData.previousEvaluations && Array.isArray(prevData.previousEvaluations)) {
           prevData.previousEvaluations.forEach((ev: Evaluation) => {
             prevMap[`${ev.evaluated_id}_${ev.item_id}`] = ev.score
           })
         }
-        console.log('前回評価マップ:', prevMap)
-        console.log('前回評価データ数:', Object.keys(prevMap).length)
         setPreviousEvaluations(prevMap)
-      } else {
-        console.log('前回評価データの取得に失敗:', prevRes.status, prevRes.statusText)
       }
     } catch (error) {
       console.error('Failed to load data:', error)

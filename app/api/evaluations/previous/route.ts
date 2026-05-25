@@ -16,8 +16,6 @@ export async function GET() {
     const previousYear = currentMonth === 1 ? currentYear - 1 : currentYear
     const previousYearMonth = `${previousYear}-${String(previousMonth).padStart(2, '0')}`
 
-    console.log(`[前回評価API] ユーザーID: ${currentUser.id}, 前月: ${previousYearMonth}`)
-
     const evaluations = await prisma.evaluation.findMany({
       where: {
         evaluatorId: currentUser.id,
@@ -30,16 +28,11 @@ export async function GET() {
       },
     })
 
-    console.log(`[前回評価API] 取得した評価データ数: ${evaluations.length}`)
-
-    // フロントエンドで期待されるスネークケースに変換
     const result = evaluations.map(ev => ({
       evaluated_id: ev.evaluatedId,
       item_id: ev.itemId,
       score: ev.score,
     }))
-
-    console.log(`[前回評価API] 返却するデータ数: ${result.length}`)
 
     return NextResponse.json({ previousEvaluations: result })
   } catch (error: any) {

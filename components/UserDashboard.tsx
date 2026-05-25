@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 
 const EvaluationTab = dynamic(() => import('@/components/user/EvaluationTab'))
@@ -30,6 +30,26 @@ export default function UserDashboard({ user, onLogout }: UserDashboardProps) {
   const [loading, setLoading] = useState(false)
   // 採点・入力結果の表の向き（共有: どちらで変更しても両方に反映）
   const [tableFlipped, setTableFlipped] = useState(false)
+  // 一度でも開いたタブを記録。タブを切り替えても unmount せず display:none で隠すことで、
+  // 各タブ内で取得済みのデータを保持して再取得を避ける（タブ移動時の読み込み待ち対策）。
+  const [visitedTabs, setVisitedTabs] = useState<Set<Tab>>(() => new Set<Tab>(['evaluation']))
+
+  useEffect(() => {
+    setVisitedTabs(prev => (prev.has(activeTab) ? prev : new Set(prev).add(activeTab)))
+  }, [activeTab])
+
+  const renderTabPanel = (tab: Tab, content: ReactNode) => {
+    if (!visitedTabs.has(tab)) return null
+    return (
+      <div
+        key={tab}
+        style={{ display: activeTab === tab ? undefined : 'none' }}
+        aria-hidden={activeTab !== tab}
+      >
+        {content}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -132,12 +152,12 @@ export default function UserDashboard({ user, onLogout }: UserDashboardProps) {
         </div>
 
         <div>
-          {activeTab === 'evaluation' && <EvaluationTab tableFlipped={tableFlipped} onTableFlippedChange={setTableFlipped} />}
-          {activeTab === 'my-results' && <MyResultsTab tableFlipped={tableFlipped} onTableFlippedChange={setTableFlipped} />}
-          {activeTab === 'summary' && <SummaryTab isAdmin={user.role === 'admin'} />}
-          {activeTab === 'monthly' && <MonthlyTab isAdmin={user.role === 'admin'} />}
-          {activeTab === 'links' && <LinksTab />}
-          {activeTab === 'settings' && <SettingsTab />}
+          {renderTabPanel('evaluation', <EvaluationTab tableFlipped={tableFlipped} onTableFlippedChange={setTableFlipped} />)}
+          {renderTabPanel('my-results', <MyResultsTab tableFlipped={tableFlipped} onTableFlippedChange={setTableFlipped} />)}
+          {renderTabPanel('summary', <SummaryTab isAdmin={user.role === 'admin'} />)}
+          {renderTabPanel('monthly', <MonthlyTab isAdmin={user.role === 'admin'} />)}
+          {renderTabPanel('links', <LinksTab />)}
+          {renderTabPanel('settings', <SettingsTab />)}
         </div>
       </div>
     </div>
