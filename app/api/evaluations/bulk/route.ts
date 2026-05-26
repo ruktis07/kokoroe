@@ -15,6 +15,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // チームに所属していないユーザーは評価できない
+    if (!currentUser.team) {
+      return NextResponse.json(
+        { error: 'チームに所属していないため評価できません。管理者にチーム設定を依頼してください。' },
+        { status: 403 }
+      )
+    }
+
     // 入力可能な評価期間の年月（例: 終了日3/10の2月度 → 3/1〜3/10は 2026-02 として保存）
     const yearMonth = await getOpenPeriodYearMonth()
     if (yearMonth == null) {
@@ -39,6 +47,31 @@ export async function POST(request: NextRequest) {
 
     if (valid.length === 0) {
       return NextResponse.json({ success: true, count: 0 })
+    }
+
+    // 自分の所属チームのメンバーIDを取得し、評価対象が全員このチームに属するかをサーバ側でも検証する。
+    // フロント側の選択肢だけに頼ると、チーム異動後の古いセッションや改ざんで所属外を評価できてしまうため。
+    const teamMembers = await prisma.member.findMany({
+      where: { team: currentUser.team },
+      select: { id: true },
+    })
+    const teamMemberIdSet = new Set(teamMembers.map((m) => m.id))
+
+    const invalidIds = Array.from(
+      new Set(
+        valid
+          .map((ev) => Number(ev.evaluated_id))
+          .filter((id) => !teamMemberIdSet.has(id))
+      )
+    )
+    if (invalidIds.length > 0) {
+      return NextResponse.json(
+        {
+          error: '所属チーム以外のメンバーは評価できません。一度ログアウトしてから再度ログインし、最新のチーム状態でやり直してください。',
+          invalidEvaluatedIds: invalidIds,
+        },
+        { status: 403 }
+      )
     }
 
     // 配列をカラム別に展開して UNNEST 経由で一括 UPSERT
