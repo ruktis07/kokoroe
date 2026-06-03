@@ -188,15 +188,18 @@ export default function MembersTab() {
 
   const membersByTeam: Record<string, Member[]> = {}
   teams.forEach(team => {
-    membersByTeam[team] = members.filter(m => m.team === team)
+    membersByTeam[team] = members.filter(m => m.team === team && m.role !== 'admin')
   })
   // 未配属（team が null/空）の一般ユーザー
   const unassignedMembers = members.filter(m => !m.team && m.role !== 'admin')
+  // 管理者（専用セクションに表示。パスワードリセットのみ可能）
+  const adminMembers = members.filter(m => m.role === 'admin')
 
-  // チームA〜J + 未配属 をまとめてセクション表示する
+  // チームA〜J + 未配属 + 管理者 をまとめてセクション表示する
   const teamSections: { key: string; title: string; list: Member[] }[] = [
     ...teams.map(t => ({ key: t, title: `チーム${t}`, list: membersByTeam[t] || [] })),
     { key: 'UNASSIGNED', title: '未配属', list: unassignedMembers },
+    { key: 'ADMIN', title: '管理者', list: adminMembers },
   ]
 
   if (loading) {
@@ -248,8 +251,8 @@ export default function MembersTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {teamSections.map(section => (
           <div key={section.key} className="bg-white rounded-lg shadow p-6">
-            <h3 className={`text-lg font-bold mb-4 ${section.key === 'UNASSIGNED' ? 'text-gray-600' : 'text-blue-600'}`}>
-              <i className={`fas ${section.key === 'UNASSIGNED' ? 'fa-user-slash' : 'fa-users'} mr-2`}></i>{section.title} ({section.list.length}名)
+            <h3 className={`text-lg font-bold mb-4 ${section.key === 'UNASSIGNED' ? 'text-gray-600' : section.key === 'ADMIN' ? 'text-purple-600' : 'text-blue-600'}`}>
+              <i className={`fas ${section.key === 'UNASSIGNED' ? 'fa-user-slash' : section.key === 'ADMIN' ? 'fa-user-shield' : 'fa-users'} mr-2`}></i>{section.title} ({section.list.length}名)
             </h3>
             <div className="space-y-2">
               {section.list.map(member => (
@@ -372,8 +375,49 @@ export default function MembersTab() {
                         <i className="fas fa-trash"></i>
                       </button>
                     </div>
-                  ) : member.role === 'admin' ? (
-                    <span className="text-xs text-gray-500">管理者</span>
+                  ) : member.role === 'admin' && editingMemberId !== member.id ? (
+                    <div className="flex items-center space-x-2 flex-wrap gap-1">
+                      <span className="text-xs text-gray-500">管理者</span>
+                      {resetPasswordTarget?.id === member.id ? (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <input
+                            type="text"
+                            value={resetPasswordValue}
+                            onChange={(e) => setResetPasswordValue(e.target.value)}
+                            placeholder="新パスワード（3文字以上）"
+                            className="px-2 py-1 border rounded text-sm w-32 focus:ring-2 focus:ring-orange-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') submitResetPassword()
+                              if (e.key === 'Escape') cancelResetPassword()
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={submitResetPassword}
+                            className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded"
+                          >
+                            設定
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelResetPassword}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
+                          >
+                            キャンセル
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startResetPassword(member.id, member.name)}
+                          className="text-orange-600 hover:text-orange-700"
+                          title="パスワードリセット"
+                        >
+                          <i className="fas fa-key"></i>
+                        </button>
+                      )}
+                    </div>
                   ) : null}
                 </div>
               ))}
