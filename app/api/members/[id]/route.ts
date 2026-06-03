@@ -12,9 +12,12 @@ export async function PUT(
     const id = parseInt(params.id)
     const { name, team } = await request.json()
 
+    // team は未配属（null）を許容。空文字なども null に正規化する。
+    const normalizedTeam = team ? team : null
+
     await prisma.member.update({
       where: { id },
-      data: { name, team },
+      data: { name, team: normalizedTeam },
     })
 
     return NextResponse.json({ success: true })

@@ -43,18 +43,21 @@ export async function POST(request: NextRequest) {
 
     const { username, name, team } = await request.json()
 
-    if (!username || !name || !team) {
+    if (!username || !name) {
       return NextResponse.json(
         { error: '必須項目を入力してください' },
         { status: 400 }
       )
     }
 
+    // team は未配属（null）を許容。空文字なども null に正規化する。
+    const normalizedTeam = team ? team : null
+
     const member = await prisma.member.create({
       data: {
         username,
         name,
-        team,
+        team: normalizedTeam,
         role: 'user',
         password: username, // 初期パスワードはユーザー名と同じ
       },

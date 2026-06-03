@@ -6,6 +6,11 @@ export async function GET() {
   try {
     const currentUser = await requireAuth()
 
+    // 未配属（team が null）のユーザーには評価対象を表示しない
+    if (!currentUser.team) {
+      return NextResponse.json({ members: [] })
+    }
+
     const members = await prisma.member.findMany({
       where: {
         team: currentUser.team,

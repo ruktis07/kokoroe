@@ -16,6 +16,7 @@ export default function MembersTab() {
   const [loading, setLoading] = useState(true)
   const [newUsername, setNewUsername] = useState('')
   const [newName, setNewName] = useState('')
+  // '' は未配属（team=null）を表す
   const [newTeam, setNewTeam] = useState('A')
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -54,7 +55,7 @@ export default function MembersTab() {
         body: JSON.stringify({
           username: newUsername,
           name: newName,
-          team: newTeam,
+          team: newTeam === '' ? null : newTeam,
         }),
       })
       if (response.ok) {
@@ -107,8 +108,10 @@ export default function MembersTab() {
     }
   }
 
-  async function handleUpdateTeam(id: number, name: string, newTeam: string) {
-    if (!confirm(`${name}さんをチーム${newTeam}に移動しますか？`)) return
+  async function handleUpdateTeam(id: number, name: string, newTeamRaw: string) {
+    const newTeam = newTeamRaw === '' ? null : newTeamRaw
+    const destLabel = newTeam === null ? '未配属' : `チーム${newTeam}`
+    if (!confirm(`${name}さんを${destLabel}に移動しますか？`)) return
     try {
       const response = await fetch(`/api/members/${id}`, {
         method: 'PUT',
@@ -117,7 +120,7 @@ export default function MembersTab() {
         body: JSON.stringify({ name, team: newTeam }),
       })
       if (response.ok) {
-        alert(`${name}さんをチーム${newTeam}に移動しました`)
+        alert(`${name}さんを${destLabel}に移動しました`)
         loadMembers()
       } else {
         alert('エラーが発生しました')
@@ -187,6 +190,14 @@ export default function MembersTab() {
   teams.forEach(team => {
     membersByTeam[team] = members.filter(m => m.team === team)
   })
+  // 未配属（team が null/空）の一般ユーザー
+  const unassignedMembers = members.filter(m => !m.team && m.role !== 'admin')
+
+  // チームA〜J + 未配属 をまとめてセクション表示する
+  const teamSections: { key: string; title: string; list: Member[] }[] = [
+    ...teams.map(t => ({ key: t, title: `チーム${t}`, list: membersByTeam[t] || [] })),
+    { key: 'UNASSIGNED', title: '未配属', list: unassignedMembers },
+  ]
 
   if (loading) {
     return <div>読み込み中...</div>
@@ -218,12 +229,12 @@ export default function MembersTab() {
           <select
             value={newTeam}
             onChange={(e) => setNewTeam(e.target.value)}
-            required
             className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
           >
             {teams.map(t => (
               <option key={t} value={t}>チーム{t}</option>
             ))}
+            <option value="">未配属</option>
           </select>
           <button
             type="submit"
@@ -235,13 +246,13 @@ export default function MembersTab() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {teams.map(team => (
-          <div key={team} className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-bold mb-4 text-blue-600">
-              <i className="fas fa-users mr-2"></i>チーム{team} ({membersByTeam[team]?.length || 0}名)
+        {teamSections.map(section => (
+          <div key={section.key} className="bg-white rounded-lg shadow p-6">
+            <h3 className={`text-lg font-bold mb-4 ${section.key === 'UNASSIGNED' ? 'text-gray-600' : 'text-blue-600'}`}>
+              <i className={`fas ${section.key === 'UNASSIGNED' ? 'fa-user-slash' : 'fa-users'} mr-2`}></i>{section.title} ({section.list.length}名)
             </h3>
             <div className="space-y-2">
-              {membersByTeam[team]?.map(member => (
+              {section.list.map(member => (
                 <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <div className="flex-1">
                     {editingMemberId === member.id ? (
@@ -304,13 +315,14 @@ export default function MembersTab() {
                   {member.role !== 'admin' && editingMemberId !== member.id ? (
                     <div className="flex items-center space-x-2 flex-wrap gap-1">
                       <select
-                        defaultValue={member.team || 'A'}
+                        value={member.team ?? ''}
                         onChange={(e) => handleUpdateTeam(member.id, member.name, e.target.value)}
                         className="px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500"
                       >
                         {teams.map(t => (
                           <option key={t} value={t}>チーム{t}</option>
                         ))}
+                        <option value="">未配属</option>
                       </select>
                       {resetPasswordTarget?.id === member.id ? (
                         <div className="flex items-center gap-1 flex-wrap">
@@ -365,7 +377,7 @@ export default function MembersTab() {
                   ) : null}
                 </div>
               ))}
-              {(!membersByTeam[team] || membersByTeam[team].length === 0) && (
+              {section.list.length === 0 && (
                 <p className="text-gray-400 text-center py-4">メンバーがいません</p>
               )}
             </div>

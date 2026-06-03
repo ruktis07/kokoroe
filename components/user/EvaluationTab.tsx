@@ -31,6 +31,8 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
   const [teamMembers, setTeamMembers] = useState<Member[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [evaluations, setEvaluations] = useState<Record<string, number>>({})
+  // 直近に保存済みの評価スナップショット（入力中の編集と区別し、入力済/未入力の判定に使う）
+  const [savedEvaluations, setSavedEvaluations] = useState<Record<string, number>>({})
   const [previousEvaluations, setPreviousEvaluations] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   // モバイル用: 対象者ごと / 項目ごと
@@ -99,6 +101,8 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
           evalMap[`${ev.evaluated_id}_${ev.item_id}`] = ev.score
         })
         setEvaluations(evalMap)
+        // 保存済みスナップショットも更新（入力済/未入力バッジの判定に使用）
+        setSavedEvaluations({ ...evalMap })
       }
 
       if (prevRes.ok) {
@@ -152,6 +156,35 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
     alert('前回の評価結果を反映しました')
   }
 
+  /** 保存済みデータを基に、そのメンバーの全項目が保存済みかを判定 */
+  function isMemberSavedComplete(memberId: number): boolean {
+    if (items.length === 0) return false
+    return items.every(item => {
+      const v = savedEvaluations[`${memberId}_${item.id}`]
+      return typeof v === 'number' && v >= 1 && v <= 10
+    })
+  }
+
+  /** メンバーの入力状況バッジ（保存済み判定ベース） */
+  function renderMemberStatusBadge(memberId: number) {
+    const complete = isMemberSavedComplete(memberId)
+    return (
+      <span
+        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-medium whitespace-nowrap ${
+          complete ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+        }`}
+      >
+        <i className={`fas ${complete ? 'fa-check' : 'fa-pen'} mr-1`}></i>
+        {complete ? '入力済' : '未入力'}
+      </span>
+    )
+  }
+
+  /** 入力欄のボーダー色（未入力マスは目立たせる） */
+  function cellBorderClass(key: string): string {
+    return evaluations[key] ? 'border-gray-300' : 'border-amber-400 bg-amber-50'
+  }
+
   async function saveAllEvaluations() {
     if (isSaving) return
 
@@ -173,6 +206,14 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
     if (evaluationsToSave.length === 0) {
       alert('評価を入力してください')
       return
+    }
+
+    // 全マス（メンバー×項目）に対して未入力がある場合は確認する
+    const expectedCount = teamMembers.length * items.length
+    if (evaluationsToSave.length < expectedCount) {
+      if (!confirm('未入力箇所があります。途中の入力までを保存しますか？')) {
+        return
+      }
     }
 
     setIsSaving(true)
@@ -229,6 +270,17 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
           <p className="text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
             <i className="fas fa-info-circle mr-1 sm:mr-2"></i>各項目を1～10点で評価（1:低い、10:高い）
           </p>
+          {teamMembers.length > 0 && (
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">
+              <i className="fas fa-list-check mr-1 sm:mr-2"></i>
+              入力済:{' '}
+              <span className="font-bold text-green-700">
+                {teamMembers.filter(m => isMemberSavedComplete(m.id)).length}
+              </span>
+              {' / '}
+              {teamMembers.length} 名（保存済みの内容で判定）
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {Object.keys(previousEvaluations).length > 0 ? (
@@ -314,6 +366,9 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                       <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
+                  {selectedMemberId != null && (
+                    <div className="mt-2">{renderMemberStatusBadge(selectedMemberId)}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">大項目</label>
@@ -353,7 +408,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                               onKeyDown={blockNonIntegerNumberKeys}
                               onChange={(e) => handleScoreChange(selectedMemberId, item.id, e.target.value)}
                               placeholder="-"
-                              className="w-20 px-3 py-2.5 border-2 border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                              className={`w-20 px-3 py-2.5 border-2 ${cellBorderClass(key)} rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation`}
                             />
                             {prevValue != null && (
                               <span className="text-xs text-gray-500"><i className="fas fa-history mr-1"></i>前回: {prevValue}</span>
@@ -401,7 +456,10 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                         const prevValue = previousEvaluations[key]
                         return (
                           <div key={member.id} className="flex flex-col gap-1">
-                            <span className="text-sm text-gray-700">{member.name}</span>
+                            <span className="text-sm text-gray-700 flex items-center gap-2">
+                              {member.name}
+                              {renderMemberStatusBadge(member.id)}
+                            </span>
                             <div className="flex items-center gap-2">
                               <input
                                 type="number"
@@ -413,7 +471,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                                 onKeyDown={blockNonIntegerNumberKeys}
                                 onChange={(e) => handleScoreChange(member.id, item.id, e.target.value)}
                                 placeholder="-"
-                                className="w-20 px-3 py-2.5 border-2 border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                                className={`w-20 px-3 py-2.5 border-2 ${cellBorderClass(key)} rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation`}
                               />
                               {prevValue != null && (
                                 <span className="text-xs text-gray-500"><i className="fas fa-history mr-1"></i>前回: {prevValue}</span>
@@ -466,7 +524,10 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                   {teamMembers.map(member => (
                     <tr key={member.id} className="hover:bg-blue-50">
                       <td className="border border-gray-300 bg-white px-2 sm:px-4 py-2 sm:py-3 font-semibold text-gray-800 sticky left-0 z-10 text-sm sm:text-base whitespace-nowrap" style={{ minWidth: '6em' }}>
-                        {member.name}
+                        <div className="flex flex-col items-start gap-1">
+                          <span>{member.name}</span>
+                          {renderMemberStatusBadge(member.id)}
+                        </div>
                       </td>
                       {items.map(item => {
                         const key = `${member.id}_${item.id}`
@@ -485,7 +546,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                                 onKeyDown={blockNonIntegerNumberKeys}
                                 onChange={(e) => handleScoreChange(member.id, item.id, e.target.value)}
                                 placeholder="-"
-                                className="evaluation-input w-12 sm:w-16 px-1 sm:px-2 py-1.5 sm:py-2 border-2 border-gray-300 rounded text-center text-base sm:text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                                className={`evaluation-input w-12 sm:w-16 px-1 sm:px-2 py-1.5 sm:py-2 border-2 ${cellBorderClass(key)} rounded text-center text-base sm:text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation`}
                               />
                               {previousValue && (
                                 <span className="text-[10px] sm:text-xs text-gray-500">
@@ -509,7 +570,10 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                     </th>
                     {teamMembers.map(member => (
                       <th key={member.id} className="border border-gray-300 bg-blue-700 text-white px-1.5 sm:px-2 py-2 sm:py-3 text-center min-w-[4.5rem] sm:min-w-[5rem] sticky top-0 z-20 text-sm sm:text-base">
-                        {member.name}
+                        <div className="flex flex-col items-center gap-1">
+                          <span>{member.name}</span>
+                          {renderMemberStatusBadge(member.id)}
+                        </div>
                       </th>
                     ))}
                   </tr>
@@ -538,7 +602,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                                 onKeyDown={blockNonIntegerNumberKeys}
                                 onChange={(e) => handleScoreChange(member.id, item.id, e.target.value)}
                                 placeholder="-"
-                                className="evaluation-input w-11 sm:w-14 px-1 py-1.5 sm:py-2 border-2 border-gray-300 rounded text-center text-sm sm:text-base font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation max-w-full"
+                                className={`evaluation-input w-11 sm:w-14 px-1 py-1.5 sm:py-2 border-2 ${cellBorderClass(key)} rounded text-center text-sm sm:text-base font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation max-w-full`}
                               />
                               {previousValue && (
                                 <span className="text-[10px] sm:text-xs text-gray-500">
