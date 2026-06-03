@@ -23,6 +23,28 @@ export default function Home() {
     checkAuth()
   }, [])
 
+  // アイドルタイムアウト: 最後の操作から30分間なにも操作がなければ自動ログアウト
+  useEffect(() => {
+    if (!currentUser) return
+    const IDLE_MS = 30 * 60 * 1000 // 30分
+    let timer: ReturnType<typeof setTimeout>
+    const handleIdleLogout = () => {
+      alert('一定時間操作がなかったため、自動的にログアウトしました。')
+      handleLogout()
+    }
+    const reset = () => {
+      clearTimeout(timer)
+      timer = setTimeout(handleIdleLogout, IDLE_MS)
+    }
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click']
+    events.forEach((e) => window.addEventListener(e, reset, true))
+    reset()
+    return () => {
+      clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, reset, true))
+    }
+  }, [currentUser])
+
   async function checkAuth() {
     try {
       const response = await fetch('/api/me', {
