@@ -53,6 +53,7 @@ export default function AdjustmentsTab() {
   const [loading, setLoading] = useState(true)
   const [filterEvaluator, setFilterEvaluator] = useState('')
   const [members, setMembers] = useState<Member[]>([])
+  const [isNormalizing, setIsNormalizing] = useState(false)
   const normalizedForRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -132,6 +133,8 @@ export default function AdjustmentsTab() {
   }
 
   async function runNormalizeTeamScores(yearMonth: string, silent = false) {
+    if (isNormalizing) return
+    setIsNormalizing(true)
     try {
       const response = await fetch(`/api/admin/normalize-team-scores?year_month=${yearMonth}`, {
         method: 'POST',
@@ -144,16 +147,19 @@ export default function AdjustmentsTab() {
           const count = data.adjusted_count ?? data.updated_count ?? 0
           alert(`チーム間調整が完了しました。\n\n${yearMonth}：${count}件の他者スコアを調整しました。`)
         }
-        loadData()
+        await loadData()
       } else if (!silent) {
         alert(data.error || 'エラーが発生しました')
       }
     } catch (error) {
       if (!silent) alert('エラーが発生しました')
+    } finally {
+      setIsNormalizing(false)
     }
   }
 
   async function handleNormalizeTeamScores() {
+    if (isNormalizing) return
     if (yearMonths.length === 0) {
       alert('評価データがありません。')
       return
@@ -237,10 +243,20 @@ export default function AdjustmentsTab() {
           <div className="flex items-center space-x-3 flex-wrap">
             <button
               onClick={handleNormalizeTeamScores}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg"
+              disabled={isNormalizing}
+              aria-busy={isNormalizing}
+              className="bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg"
               title="項目ごとに全チーム平均とチーム平均の差で採点を調整"
             >
-              <i className="fas fa-balance-scale mr-2"></i>チーム間調整
+              {isNormalizing ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>調整中…
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-balance-scale mr-2"></i>チーム間調整
+                </>
+              )}
             </button>
             <button
               onClick={() => exportCSV('evaluations')}

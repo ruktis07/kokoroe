@@ -92,6 +92,14 @@ export async function POST(request: NextRequest) {
       teamAvgByItem.set(key, scores.reduce((a, b) => a + b, 0) / scores.length)
     })
 
+    // メンバーID → チームのマップを事前構築（ループ内の find による O(n^2) を回避）
+    const memberTeamMap = new Map<number, string>()
+    userEvaluations.forEach(ev => {
+      if (ev.evaluated.team && !memberTeamMap.has(ev.evaluatedId)) {
+        memberTeamMap.set(ev.evaluatedId, ev.evaluated.team)
+      }
+    })
+
     // 各 (member, item) に対して調整を OthersScoreAdjustment に保存
     const toUpsert: { memberId: number; itemId: number; adjustedScore: number }[] = []
 
@@ -100,11 +108,11 @@ export async function POST(request: NextRequest) {
       const memberId = parseInt(memberIdStr, 10)
       const itemId = parseInt(itemIdStr, 10)
 
-      const memberEval = userEvaluations.find(ev => ev.evaluatedId === memberId)
-      if (!memberEval?.evaluated.team) return
+      const memberTeam = memberTeamMap.get(memberId)
+      if (!memberTeam) return
 
       const overallAvg = overallAvgByItem.get(itemId)
-      const teamKey = `${itemId}_${memberEval.evaluated.team}`
+      const teamKey = `${itemId}_${memberTeam}`
       const teamAvg = teamAvgByItem.get(teamKey)
       if (overallAvg == null || teamAvg == null) return
 
@@ -116,29 +124,41 @@ export async function POST(request: NextRequest) {
       toUpsert.push({ memberId, itemId, adjustedScore: clampedScore })
     })
 
+    // UNNEST + ON CONFLICT で全件を1クエリで UPSERT する。
+    // 旧実装はメンバー×項目ぶん（例: 50人×20項目=1000回）DBを往復していたため遅かった。
     let upsertCount = 0
-    try {
-      for (const u of toUpsert) {
-        await prisma.othersScoreAdjustment.upsert({
-          where: {
-            memberId_itemId_yearMonth: {
-              memberId: u.memberId,
-              itemId: u.itemId,
-              yearMonth,
-            },
-          },
-          update: { adjustedScore: u.adjustedScore, updatedAt: new Date() },
-          create: {
-            memberId: u.memberId,
-            itemId: u.itemId,
-            yearMonth,
-            adjustedScore: u.adjustedScore,
-          },
-        })
-        upsertCount++
+    if (toUpsert.length > 0) {
+      const memberIds = toUpsert.map(u => u.memberId)
+      const itemIds = toUpsert.map(u => u.itemId)
+      const adjustedScores = toUpsert.map(u => u.adjustedScore)
+
+      try {
+        await prisma.$executeRaw`
+          INSERT INTO others_score_adjustments (
+            member_id, item_id, year_month, adjusted_score, created_at, updated_at
+          )
+          SELECT
+            t.member_id,
+            t.item_id,
+            ${yearMonth}::varchar,
+            t.adjusted_score,
+            NOW(),
+            NOW()
+          FROM UNNEST(
+            ${memberIds}::int[],
+            ${itemIds}::int[],
+            ${adjustedScores}::double precision[]
+          ) AS t(member_id, item_id, adjusted_score)
+          ON CONFLICT (member_id, item_id, year_month)
+          DO UPDATE SET
+            adjusted_score = EXCLUDED.adjusted_score,
+            updated_at = NOW()
+        `
+        upsertCount = toUpsert.length
+      } catch (e) {
+        // OthersScoreAdjustment テーブルが未作成の場合は無視
+        console.error('normalize-team-scores upsert error:', e)
       }
-    } catch {
-      // OthersScoreAdjustment テーブルが未作成の場合は無視
     }
 
     return NextResponse.json({

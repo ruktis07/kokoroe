@@ -8,6 +8,7 @@ const ItemsTab = dynamic(() => import('@/components/admin/ItemsTab'))
 const PeriodsTab = dynamic(() => import('@/components/admin/PeriodsTab'))
 const AdjustmentsTab = dynamic(() => import('@/components/admin/AdjustmentsTab'))
 const TabViewLogsTab = dynamic(() => import('@/components/admin/TabViewLogsTab'))
+const SettingsTab = dynamic(() => import('@/components/user/SettingsTab'))
 
 interface User {
   id: number
@@ -22,7 +23,7 @@ interface AdminDashboardProps {
   onLogout: () => void
 }
 
-type Tab = 'members' | 'items' | 'periods' | 'adjustments' | 'summary-monthly'
+type Tab = 'members' | 'items' | 'periods' | 'adjustments' | 'summary-monthly' | 'settings'
 
 export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('members')
@@ -38,12 +39,13 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   useEffect(() => {
     const prefetchAll = () => {
       setVisitedTabs(prev => {
-        if (prev.size >= 5) return prev
+        if (prev.size >= 6) return prev
         const next = new Set(prev)
         next.add('items')
         next.add('periods')
         next.add('adjustments')
         next.add('summary-monthly')
+        next.add('settings')
         return next
       })
     }
@@ -159,6 +161,16 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
             >
               <i className="fas fa-history mr-1 sm:mr-2"></i>集計ログ
             </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-3 sm:px-6 py-3 font-semibold whitespace-nowrap touch-manipulation min-h-[48px] border-b-2 -mb-px ${
+                activeTab === 'settings'
+                  ? 'border-blue-500 text-blue-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <i className="fas fa-cog mr-1 sm:mr-2"></i>設定
+            </button>
           </div>
         </div>
 
@@ -168,6 +180,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           {renderTabPanel('periods', <PeriodsTab />)}
           {renderTabPanel('adjustments', <AdjustmentsTab />)}
           {renderTabPanel('summary-monthly', <TabViewLogsTab />)}
+          {renderTabPanel('settings', <SettingsTab />)}
         </div>
       </div>
     </div>
