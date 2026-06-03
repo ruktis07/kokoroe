@@ -56,8 +56,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export async function setSessionUser(user: SessionUser) {
   const cookieStore = await cookies()
+  // maxAge / expires を指定しないことで「セッションCookie」になり、
+  // ブラウザを閉じたタイミングで破棄される（＝自動ログアウト）。
   cookieStore.set('session_user', JSON.stringify({ id: user.id }), {
-    maxAge: 86400, // 24 hours
     path: '/',
     sameSite: 'lax',
     httpOnly: true,
