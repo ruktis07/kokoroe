@@ -32,10 +32,8 @@ export async function getOpenPeriod(): Promise<{
 }
 
 /**
- * expirePastPeriods をスキップした高速版。
- * findFirst の条件に `endDate >= today` を含めているため、isActive を更新しなくても
- * 期限切れの期間が誤って取得されることはない。
- * ステータス確認のような頻繁に叩かれるエンドポイントでは UPDATE 往復を省くためにこちらを使う。
+ * expirePastPeriods をスキップした読み取り専用版。
+ * 呼び出し元で expirePastPeriods を実行したうえで使うこと。
  */
 export async function getOpenPeriodFast(): Promise<{
   yearMonth: string

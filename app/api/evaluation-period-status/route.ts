@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
-import { getOpenPeriodFast } from '@/lib/evaluation-period'
+import { expirePastPeriods, getOpenPeriodFast } from '@/lib/evaluation-period'
 
 export async function GET() {
   try {
     await requireAuth()
 
-    // 並列で「現在開いている期間」と「期間が1件でもあるか」を取得（旧実装は直列2〜3クエリ + UPDATE）
+    // 終了日を過ぎた期間は isActive を false に更新してから判定する
+    await expirePastPeriods()
     const [period, anyPeriodRow] = await Promise.all([
       getOpenPeriodFast(),
       prisma.evaluationPeriod.findFirst({ select: { id: true } }),
