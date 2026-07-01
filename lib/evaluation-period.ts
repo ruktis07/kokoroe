@@ -1,3 +1,4 @@
+import { getTodayYmdInJST } from '@/lib/date'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -5,7 +6,7 @@ import { prisma } from '@/lib/prisma'
  * 期間を過ぎたら状態を無効にしておくため、getOpenPeriod や一覧取得の前に呼ぶ。
  */
 export async function expirePastPeriods(): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  const today = getTodayYmdInJST()
   await prisma.evaluationPeriod.updateMany({
     where: {
       isActive: true,
@@ -16,7 +17,8 @@ export async function expirePastPeriods(): Promise<void> {
 }
 
 /**
- * 今日の日付が start_date 〜 end_date の間に入っている「有効な」評価期間を1件取得する。
+ * 日本時間の「今日」が start_date 〜 end_date の間に入っている「有効な」評価期間を1件取得する。
+ * 終了日はその日いっぱい（23:59 JST まで）入力可能。例: 終了 6/30 なら 6/30 中は可、7/1 0:00 JST から不可。
  * 例: 2月度の終了日を 3/10 にすると、3/1〜3/10 の間は「2月度」として入力可能になる。
  * 取得前に終了日を過ぎた期間は自動で無効にする。
  */
@@ -40,7 +42,7 @@ export async function getOpenPeriodFast(): Promise<{
   startDate: string
   endDate: string
 } | null> {
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  const today = getTodayYmdInJST()
 
   const period = await prisma.evaluationPeriod.findFirst({
     where: {

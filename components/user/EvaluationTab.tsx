@@ -22,6 +22,11 @@ interface Evaluation {
 
 type MobileViewMode = 'by-person' | 'by-item'
 
+/** PC表: ヘッダー1行 + メンバー2行分の最低高さ */
+const PC_TABLE_MIN_HEIGHT = 'calc(3.75rem + 2 * 5.25rem)'
+/** PC反転表: 項目列 + メンバー2列分の最低幅 */
+const PC_TABLE_FLIPPED_MIN_WIDTH = 'calc(7.5em + 11rem)'
+
 interface EvaluationTabProps {
   tableFlipped: boolean
   onTableFlippedChange: (flipped: boolean) => void
@@ -261,8 +266,8 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6">
+    <div className="bg-white rounded-lg shadow p-3 sm:p-6 md:flex md:flex-col md:max-h-[calc(100dvh-7rem)] md:min-h-0 md:overflow-y-auto">
+      <div className="flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-3 md:mb-3 sm:mb-6">
         <div>
           <h2 className="text-lg sm:text-xl font-bold">
             <i className="fas fa-users mr-2"></i>チームメンバー評価表
@@ -488,7 +493,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
           </div>
 
           {/* PC用: 表の向き切り替えボタン */}
-          <div className="hidden md:flex md:items-center md:gap-3 md:mb-3">
+          <div className="hidden md:flex md:flex-shrink-0 md:items-center md:gap-3 md:mb-3">
             <button
               type="button"
               onClick={() => onTableFlippedChange(!tableFlipped)}
@@ -500,10 +505,13 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
             </button>
           </div>
 
-          {/* PC用: 表（通常＝被評価者を行 / 反転＝項目を行） */}
+          {/* PC用: 表（通常＝被評価者を行 / 反転＝項目を行）— 最低2人分が見えるサイズを確保 */}
           <div
-            className={`hidden md:block -mx-3 sm:mx-0 px-3 sm:px-0 min-w-0 ${tableFlipped ? 'overflow-auto max-h-[70vh]' : 'overflow-x-auto'}`}
-            style={{ WebkitOverflowScrolling: 'touch' }}
+            className="hidden md:block flex-1 overflow-auto border border-gray-200 rounded-lg min-w-0"
+            style={{
+              minHeight: PC_TABLE_MIN_HEIGHT,
+              WebkitOverflowScrolling: 'touch',
+            }}
           >
             {!tableFlipped ? (
               <table className="min-w-full border-collapse border border-gray-300">
@@ -513,8 +521,8 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                       被評価者
                     </th>
                     {items.map(item => (
-                      <th key={item.id} className="border border-gray-300 bg-blue-700 text-white px-2 sm:px-4 py-2 sm:py-3 text-center min-w-[8em] sm:min-w-[200px] sticky top-0 z-20">
-                        <div className="table-header-major-category text-xs sm:text-sm">{item.major_category || ''}</div>
+                      <th key={item.id} className="border border-gray-300 bg-blue-700 text-white px-2 sm:px-4 py-2 sm:py-3 text-center min-w-[6em] sm:min-w-[10rem] max-w-[14rem] sticky top-0 z-20">
+                        <div className="table-header-major-category text-xs sm:text-sm !whitespace-normal !min-w-0">{item.major_category || ''}</div>
                         <div className="table-header-minor-category text-[10px] sm:text-xs">{item.minor_category || ''}</div>
                       </th>
                     ))}
@@ -523,7 +531,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                 <tbody>
                   {teamMembers.map(member => (
                     <tr key={member.id} className="hover:bg-blue-50">
-                      <td className="border border-gray-300 bg-white px-2 sm:px-4 py-2 sm:py-3 font-semibold text-gray-800 sticky left-0 z-10 text-sm sm:text-base whitespace-nowrap" style={{ minWidth: '6em' }}>
+                      <td className="border border-gray-300 bg-white px-2 sm:px-4 py-2.5 sm:py-3 font-semibold text-gray-800 sticky left-0 z-10 text-sm sm:text-base whitespace-nowrap align-top" style={{ minWidth: '6em', minHeight: '5.25rem' }}>
                         <div className="flex flex-col items-start gap-1">
                           <span>{member.name}</span>
                           {renderMemberStatusBadge(member.id)}
@@ -534,7 +542,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                         const currentValue = evaluations[key] || ''
                         const previousValue = previousEvaluations[key]
                         return (
-                          <td key={item.id} className="border border-gray-300 bg-white px-1 sm:px-2 py-1.5 sm:py-2 text-center">
+                          <td key={item.id} className="border border-gray-300 bg-white px-1 sm:px-2 py-1.5 sm:py-2 text-center align-top" style={{ minHeight: '5.25rem' }}>
                             <div className="flex flex-col items-center gap-0.5 sm:gap-1">
                               <input
                                 type="number"
@@ -562,16 +570,19 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                 </tbody>
               </table>
             ) : (
-              <table className="min-w-full border-collapse border border-gray-300">
+              <table
+                className="min-w-full border-collapse border border-gray-300"
+                style={{ minWidth: PC_TABLE_FLIPPED_MIN_WIDTH }}
+              >
                 <thead>
                   <tr>
                     <th className="border border-gray-300 bg-gray-700 text-white px-2 sm:px-3 py-2 sm:py-3 text-left font-bold sticky left-0 top-0 z-30 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" style={{ minWidth: '7.5em' }}>
                       評価項目
                     </th>
                     {teamMembers.map(member => (
-                      <th key={member.id} className="border border-gray-300 bg-blue-700 text-white px-1.5 sm:px-2 py-2 sm:py-3 text-center min-w-[4.5rem] sm:min-w-[5rem] sticky top-0 z-20 text-sm sm:text-base">
+                      <th key={member.id} className="border border-gray-300 bg-blue-700 text-white px-1.5 sm:px-2 py-2 sm:py-3 text-center min-w-[5.5rem] sticky top-0 z-20 text-sm sm:text-base">
                         <div className="flex flex-col items-center gap-1">
-                          <span>{member.name}</span>
+                          <span className="leading-tight">{member.name}</span>
                           {renderMemberStatusBadge(member.id)}
                         </div>
                       </th>
@@ -581,16 +592,16 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
                 <tbody>
                   {items.map(item => (
                     <tr key={item.id} className="hover:bg-blue-50">
-                      <td className="border border-gray-300 bg-white px-2 sm:px-3 py-2 sm:py-3 font-semibold text-gray-800 sticky left-0 z-10 text-base sm:text-lg whitespace-nowrap" style={{ minWidth: '7.5em' }}>
-                        <div className="evaluation-item-major-category text-sm sm:text-base">{item.major_category || ''}</div>
-                        <div className="evaluation-item-minor-category text-xs sm:text-sm">{item.minor_category || ''}</div>
+                      <td className="border border-gray-300 bg-white px-2 sm:px-3 py-2 sm:py-3 font-semibold text-gray-800 sticky left-0 z-10 text-base sm:text-lg align-top" style={{ minWidth: '7.5em', maxWidth: '14rem' }}>
+                        <div className="evaluation-item-major-category text-sm sm:text-base break-words">{item.major_category || ''}</div>
+                        <div className="evaluation-item-minor-category text-xs sm:text-sm break-words">{item.minor_category || ''}</div>
                       </td>
                       {teamMembers.map(member => {
                         const key = `${member.id}_${item.id}`
                         const currentValue = evaluations[key] || ''
                         const previousValue = previousEvaluations[key]
                         return (
-                          <td key={member.id} className="border border-gray-300 bg-white px-1 sm:px-1.5 py-1.5 sm:py-2 text-center min-w-0">
+                          <td key={member.id} className="border border-gray-300 bg-white px-1 sm:px-1.5 py-1.5 sm:py-2 text-center min-w-[5.5rem]">
                             <div className="flex flex-col items-center gap-0.5 sm:gap-1">
                               <input
                                 type="number"
@@ -620,7 +631,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
             )}
           </div>
 
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 sm:mt-6">
+          <div className="md:hidden flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 sm:mt-6">
             {Object.keys(previousEvaluations).length > 0 ? (
               <button
                 onClick={applyPreviousScores}
