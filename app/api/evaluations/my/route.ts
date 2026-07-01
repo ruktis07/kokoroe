@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
-import { getOpenPeriodYearMonth } from '@/lib/evaluation-period'
+import { getResultsDisplayYearMonth } from '@/lib/evaluation-period'
 
 export async function GET() {
   try {
     const currentUser = await requireAuth()
 
-    // 入力可能な評価期間の月度（例: 2月度で終了日3/10 → 3/1〜3/10は 2026-02 のデータを表示）。期間外の場合は表示しない。
-    const yearMonth = await getOpenPeriodYearMonth()
+    // 評価期間中は当月度、期間外（次回開始前）は直近に終了した月度のデータを表示
+    const yearMonth = await getResultsDisplayYearMonth()
     if (yearMonth == null) {
       return NextResponse.json({ evaluations: [], year_month: null })
     }

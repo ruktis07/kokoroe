@@ -22,6 +22,12 @@ interface Evaluation {
 
 type MobileViewMode = 'by-person' | 'by-item'
 
+interface NextPeriod {
+  yearMonth: string
+  startDate: string
+  endDate: string
+}
+
 /** PC表: ヘッダー1行 + メンバー2行分の最低高さ */
 const PC_TABLE_MIN_HEIGHT = 'calc(3.75rem + 2 * 5.25rem)'
 /** PC反転表: 項目列 + メンバー2列分の最低幅 */
@@ -47,6 +53,7 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
   const [periodOpen, setPeriodOpen] = useState<boolean | null>(null)
   const [periodMessage, setPeriodMessage] = useState<string>('')
+  const [nextPeriod, setNextPeriod] = useState<NextPeriod | null>(null)
   // 保存中フラグ（二重送信防止用）
   const [isSaving, setIsSaving] = useState(false)
 
@@ -84,9 +91,11 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
         const periodData = await periodRes.json()
         setPeriodOpen(periodData.isOpen === true)
         setPeriodMessage(periodData.message || '')
+        setNextPeriod(periodData.nextPeriod ?? null)
       } else {
         setPeriodOpen(false)
         setPeriodMessage('評価期間の確認に失敗しました')
+        setNextPeriod(null)
       }
 
       if (membersRes.ok) {
@@ -257,8 +266,17 @@ export default function EvaluationTab({ tableFlipped, onTableFlippedChange }: Ev
           {periodMessage && (
             <p className="text-sm text-amber-700 mt-2">{periodMessage}</p>
           )}
+          {nextPeriod && (
+            <p className="text-sm text-amber-800 mt-3 font-medium">
+              <i className="fas fa-calendar-alt mr-1"></i>
+              次回評価期間: {nextPeriod.yearMonth}月度（{nextPeriod.startDate} 〜 {nextPeriod.endDate}まで）
+            </p>
+          )}
           <p className="text-sm text-gray-600 mt-4">
             評価の入力・保存は、管理者が設定した評価期間中のみ可能です。
+          </p>
+          <p className="text-sm text-gray-600 mt-2">
+            打ち忘れ等で評価できなかった場合は管理者に連絡してください。
           </p>
         </div>
       </div>

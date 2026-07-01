@@ -54,6 +54,25 @@ export async function getOpenPeriodFast(): Promise<{
   return period ? { yearMonth: period.yearMonth, startDate: period.startDate, endDate: period.endDate } : null
 }
 
+/** 開始日が日本時間の「今日」より後の、次の評価期間を1件取得する */
+export async function getNextPeriod(): Promise<{
+  yearMonth: string
+  startDate: string
+  endDate: string
+} | null> {
+  const today = getTodayYmdInJST()
+
+  const period = await prisma.evaluationPeriod.findFirst({
+    where: {
+      isActive: true,
+      startDate: { gt: today },
+    },
+    orderBy: { startDate: 'asc' },
+  })
+
+  return period ? { yearMonth: period.yearMonth, startDate: period.startDate, endDate: period.endDate } : null
+}
+
 /**
  * 現在入力可能な評価期間の年月（YYYY-MM）。期間がなければ null。
  * 評価の保存時にこの値を使うと「2月度を3/10まで入力」が正しく動く。
@@ -61,4 +80,20 @@ export async function getOpenPeriodFast(): Promise<{
 export async function getOpenPeriodYearMonth(): Promise<string | null> {
   const period = await getOpenPeriod()
   return period?.yearMonth ?? null
+}
+
+/**
+ * 入力結果タブで表示する評価月度。
+ * 評価期間中は現在の期間、期間外（次回開始前）は直近に終了した期間を返す。
+ */
+export async function getResultsDisplayYearMonth(): Promise<string | null> {
+  const open = await getOpenPeriod()
+  if (open) return open.yearMonth
+
+  const today = getTodayYmdInJST()
+  const lastPeriod = await prisma.evaluationPeriod.findFirst({
+    where: { endDate: { lt: today } },
+    orderBy: { endDate: 'desc' },
+  })
+  return lastPeriod?.yearMonth ?? null
 }

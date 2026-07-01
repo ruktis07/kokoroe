@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
-import { expirePastPeriods, getOpenPeriodFast } from '@/lib/evaluation-period'
+import { expirePastPeriods, getNextPeriod, getOpenPeriodFast } from '@/lib/evaluation-period'
 
 export async function GET() {
   try {
@@ -9,8 +9,9 @@ export async function GET() {
 
     // 終了日を過ぎた期間は isActive を false に更新してから判定する
     await expirePastPeriods()
-    const [period, anyPeriodRow] = await Promise.all([
+    const [period, nextPeriod, anyPeriodRow] = await Promise.all([
       getOpenPeriodFast(),
+      getNextPeriod(),
       prisma.evaluationPeriod.findFirst({ select: { id: true } }),
     ])
 
@@ -22,6 +23,7 @@ export async function GET() {
           startDate: period.startDate,
           endDate: period.endDate,
         },
+        nextPeriod: null,
         message: `${period.yearMonth}度の評価入力期間です（${period.startDate} 〜 ${period.endDate}まで）`,
       })
     }
@@ -29,6 +31,13 @@ export async function GET() {
     return NextResponse.json({
       isOpen: false,
       period: null,
+      nextPeriod: nextPeriod
+        ? {
+            yearMonth: nextPeriod.yearMonth,
+            startDate: nextPeriod.startDate,
+            endDate: nextPeriod.endDate,
+          }
+        : null,
       message: anyPeriodRow
         ? '現在は評価期間外です。入力可能な期間は管理者が設定した開始日〜終了日の間のみです。'
         : '評価期間が設定されていません。',
